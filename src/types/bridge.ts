@@ -1,5 +1,21 @@
 export type BridgeStatus = 'awaiting_bridge' | 'in_transit' | 'awaiting_claim' | 'claimed'
 
+// New transaction states for outbox tracking
+export type TransactionStatus = 'pending' | 'confirmed' | 'sent_to_remote' | 'ready_to_claim' | 'claimed'
+
+// Outbox tree structures
+export interface Tree {
+  branch: string[] // bytes32[32] array
+  count: number
+}
+
+export interface JBOutboxTree {
+  nonce: number
+  balance: string // uint256 as string
+  tree: Tree
+  numberOfClaimsSent: number
+}
+
 export interface Token {
   symbol: string
   name: string

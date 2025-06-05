@@ -1,45 +1,56 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BridgeTransaction } from '@/types/bridge'
 import { BridgeTransactionCard } from './BridgeTransactionCard'
-import { getBridgeTransactions } from '@/services/mockBridgeService'
+import { bridgeStorageService, type StoredBridgeTransaction } from '@/services/bridgeStorageService'
+import { useBridgeStateMonitor } from '@/hooks/useBridgeStateMonitor'
 
 export function BridgeTransactionList() {
-  const [transactions, setTransactions] = useState<BridgeTransaction[]>([])
+  const [transactions, setTransactions] = useState<StoredBridgeTransaction[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Monitor bridge states with auto-refresh every 30 seconds
+  const { stateInfos, isChecking, lastCheckTime } = useBridgeStateMonitor({
+    intervalMs: 30000,
+    enabled: true
+  })
   
   useEffect(() => {
-    const fetchTransactions = async () => {
+    const loadTransactions = () => {
       try {
         setLoading(true)
-        const data = await getBridgeTransactions()
-        setTransactions(data)
-        setError(null)
+        
+        // Remove any duplicates before loading
+        bridgeStorageService.removeDuplicateTransactions()
+        
+        const storedTransactions = bridgeStorageService.getAllTransactions()
+        
+        // Sort by timestamp (newest first)
+        const sortedTransactions = storedTransactions.sort((a, b) => b.timestamp - a.timestamp)
+        setTransactions(sortedTransactions)
       } catch (err) {
-        console.error('Failed to fetch transactions:', err)
-        setError('Failed to load transactions. Please try again.')
+        console.error('Failed to load transactions:', err)
       } finally {
         setLoading(false)
       }
     }
     
-    fetchTransactions()
+    // Load initially
+    loadTransactions()
+    
+    // Listen for localStorage changes (when new transactions are added)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'juicerkle-bridge-transactions') {
+        loadTransactions()
+      }
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+    }
   }, [])
-  
-  const handleClaim = (transaction: BridgeTransaction) => {
-    console.log('Claiming transaction:', transaction)
-    // In a real app, you would call your backend API to claim the transaction
-    // For this mock implementation, we'll just update the local state
-    setTransactions(prev => 
-      prev.map(tx => 
-        tx.id === transaction.id 
-          ? { ...tx, status: 'claimed' as const } 
-          : tx
-      )
-    )
-  }
   
   if (loading) {
     return (
@@ -51,37 +62,42 @@ export function BridgeTransactionList() {
     )
   }
   
-  if (error) {
-    return (
-      <div className="text-center py-8 text-red-500">
-        <p>{error}</p>
-        <button 
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          onClick={() => window.location.reload()}
-        >
-          Retry
-        </button>
-      </div>
-    )
-  }
-  
   if (transactions.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
         <p>No bridge transactions found.</p>
+        <p className="text-sm mt-2">Your bridge transactions will appear here once you start bridging tokens.</p>
       </div>
     )
   }
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {transactions.map(transaction => (
-        <BridgeTransactionCard 
-          key={transaction.id} 
-          transaction={transaction} 
-          onClaim={transaction.status === 'awaiting_claim' ? handleClaim : undefined}
-        />
-      ))}
+    <div className="space-y-4">
+      {/* Status Monitor Info */}
+      <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+        <span>{transactions.length} transaction{transactions.length !== 1 ? 's' : ''}</span>
+        <div className="flex items-center gap-2">
+          {isChecking && (
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 animate-spin rounded-full border-2 border-current border-r-transparent"></div>
+              <span>Checking states...</span>
+            </div>
+          )}
+          {lastCheckTime && !isChecking && (
+            <span>Last updated: {lastCheckTime.toLocaleTimeString()}</span>
+          )}
+        </div>
+      </div>
+      
+      {/* Transaction Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {transactions.map(transaction => (
+          <BridgeTransactionCard 
+            key={transaction.id} 
+            transaction={transaction}
+          />
+        ))}
+      </div>
     </div>
   )
 }

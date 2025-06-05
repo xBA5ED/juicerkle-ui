@@ -1,4 +1,5 @@
 import { type Address } from 'viem'
+import { type TransactionStatus } from '@/types/bridge'
 
 export interface StoredBridgeTransaction {
   // Transaction identifiers
@@ -26,7 +27,7 @@ export interface StoredBridgeTransaction {
   
   // Metadata
   timestamp: number
-  status: 'pending' | 'confirmed' | 'bridged' | 'claimed'
+  status: TransactionStatus
 }
 
 const STORAGE_KEY = 'juicerkle-bridge-transactions'
@@ -56,7 +57,7 @@ class BridgeStorageService {
     this.saveTransactions(transactions)
   }
 
-  updateTransactionStatus(id: string, status: StoredBridgeTransaction['status']): void {
+  updateTransactionStatus(id: string, status: TransactionStatus): void {
     const transactions = this.getStoredTransactions()
     const transaction = transactions.find(tx => tx.id === id)
     if (transaction) {
@@ -65,28 +66,7 @@ class BridgeStorageService {
     }
   }
 
-  updateTransactionWithEventData(
-    transactionHash: string, 
-    eventData: {
-      hashed: string
-      index: string
-      root: string
-      terminalTokenAmount: string
-      caller: Address
-    }
-  ): void {
-    const transactions = this.getStoredTransactions()
-    const transaction = transactions.find(tx => tx.transactionHash === transactionHash)
-    if (transaction) {
-      transaction.hashed = eventData.hashed
-      transaction.index = eventData.index
-      transaction.root = eventData.root
-      transaction.terminalTokenAmount = eventData.terminalTokenAmount
-      transaction.caller = eventData.caller
-      transaction.status = 'confirmed'
-      this.saveTransactions(transactions)
-    }
-  }
+  // Note: updateTransactionWithEventData removed - we now store complete transactions only when confirmed
 
   getAllTransactions(): StoredBridgeTransaction[] {
     return this.getStoredTransactions()
@@ -114,6 +94,52 @@ class BridgeStorageService {
 
   generateTransactionId(): string {
     return `bridge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  }
+
+  // Debug method to check for and remove duplicates
+  removeDuplicateTransactions(): void {
+    const transactions = this.getStoredTransactions()
+    const uniqueById = new Map<string, StoredBridgeTransaction>()
+    const uniqueByHash = new Map<string, StoredBridgeTransaction>()
+    
+    // First, deduplicate by ID (should be primary)
+    transactions.forEach(tx => {
+      const existing = uniqueById.get(tx.id)
+      if (!existing || tx.timestamp > existing.timestamp) {
+        uniqueById.set(tx.id, tx)
+      }
+    })
+    
+    // Then, deduplicate by transaction hash (in case IDs differ)
+    Array.from(uniqueById.values()).forEach(tx => {
+      const existing = uniqueByHash.get(tx.transactionHash)
+      if (!existing || tx.timestamp > existing.timestamp) {
+        uniqueByHash.set(tx.transactionHash, tx)
+      }
+    })
+    
+    const deduplicatedTransactions = Array.from(uniqueByHash.values())
+    
+    if (deduplicatedTransactions.length !== transactions.length) {
+      console.log(`Removed ${transactions.length - deduplicatedTransactions.length} duplicate transactions`)
+      console.log('Duplicates found:', {
+        original: transactions.length,
+        afterIdDedup: uniqueById.size,
+        afterHashDedup: deduplicatedTransactions.length
+      })
+      this.saveTransactions(deduplicatedTransactions)
+    }
+  }
+
+  // Debug method to show all transaction IDs
+  debugTransactions(): void {
+    const transactions = this.getStoredTransactions()
+    console.log('All transactions:', transactions.map(tx => ({
+      id: tx.id,
+      status: tx.status,
+      timestamp: new Date(tx.timestamp).toISOString(),
+      hash: tx.transactionHash.slice(0, 10)
+    })))
   }
 }
 

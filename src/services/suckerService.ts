@@ -1,5 +1,6 @@
 import { createPublicClient, http, type Address, parseUnits, type Hash } from 'viem'
 import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
+import { type JBOutboxTree } from '@/types/bridge'
 
 const SUCKER_ABI = [
   {
@@ -13,6 +14,33 @@ const SUCKER_ABI = [
       { name: 'token', type: 'address' }
     ],
     outputs: []
+  },
+  {
+    name: 'outboxOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'token', type: 'address' }
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'nonce', type: 'uint64' },
+          { name: 'balance', type: 'uint256' },
+          { 
+            name: 'tree', 
+            type: 'tuple',
+            components: [
+              { name: 'branch', type: 'bytes32[32]' },
+              { name: 'count', type: 'uint256' }
+            ]
+          },
+          { name: 'numberOfClaimsSent', type: 'uint256' }
+        ]
+      }
+    ]
   }
 ] as const
 
@@ -65,6 +93,36 @@ function createClient(chainId: number) {
 }
 
 class SuckerService {
+  async getOutboxTree(
+    chainId: number,
+    suckerAddress: Address,
+    tokenAddress: Address
+  ): Promise<JBOutboxTree> {
+    try {
+      const client = createClient(chainId)
+      
+      const result = await client.readContract({
+        address: suckerAddress,
+        abi: SUCKER_ABI,
+        functionName: 'outboxOf',
+        args: [tokenAddress]
+      })
+
+      return {
+        nonce: Number(result.nonce),
+        balance: result.balance.toString(),
+        tree: {
+          branch: result.tree.branch,
+          count: Number(result.tree.count)
+        },
+        numberOfClaimsSent: Number(result.numberOfClaimsSent)
+      }
+    } catch (error) {
+      console.error('Failed to get outbox tree:', error)
+      throw error
+    }
+  }
+
   async listenForInsertToOutboxTreeEvent(
     chainId: number,
     suckerAddress: Address,

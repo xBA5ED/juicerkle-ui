@@ -73,21 +73,11 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
         }
     }, [isConfirmed])
 
-    // Update stored transaction with hash when available
-    useEffect(() => {
-        if (hash && bridgeTransactionId) {
-            // Update the stored transaction with the actual hash
-            const storedTransaction = bridgeStorageService.getTransactionById(bridgeTransactionId)
-            if (storedTransaction) {
-                storedTransaction.transactionHash = hash
-                bridgeStorageService.storeBridgeTransaction(storedTransaction)
-            }
-        }
-    }, [hash, bridgeTransactionId])
+    // Note: We no longer store incomplete transactions before confirmation
 
     // Handle bridge transaction confirmation and event listening
     useEffect(() => {
-        if (isConfirmed && hash && bridgeTransactionId && selectedPair && chainId) {
+        if (isConfirmed && hash && bridgeTransactionId && selectedPair && chainId && projectId && terminalToken && address) {
             const handleBridgeEvent = async () => {
                 try {
                     setWaitingForEvent(true)
@@ -98,16 +88,30 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
                         suckerInfo.address as Address,
                         hash,
                         (eventData) => {
-                            // Update stored transaction with event data
-                            bridgeStorageService.updateTransactionWithEventData(hash, {
+                            // Store the complete transaction data only when confirmed
+                            const destinationChain = getDestinationChain(selectedPair)
+                            
+                            bridgeStorageService.storeBridgeTransaction({
+                                id: bridgeTransactionId,
+                                transactionHash: hash,
+                                projectId: projectId!,
+                                sourceChainId: chainId,
+                                targetChainId: destinationChain.chainId,
+                                suckerAddress: suckerInfo.address as Address,
+                                beneficiary: address!,
+                                token: terminalToken!,
+                                projectTokenCount: amount,
+                                terminalTokenAmount: eventData.terminalTokenAmount,
+                                minTokensReclaimed: '0', // TODO: Add slippage protection
                                 hashed: eventData.hashed,
                                 index: eventData.index,
                                 root: eventData.root,
-                                terminalTokenAmount: eventData.terminalTokenAmount,
-                                caller: eventData.caller
+                                caller: eventData.caller,
+                                timestamp: Date.now(),
+                                status: 'confirmed'
                             })
 
-                            console.log('Bridge transaction confirmed with event data:', eventData)
+                            console.log('Bridge transaction confirmed and stored:', eventData)
                             setWaitingForEvent(false)
 
                             // Reset form state
@@ -134,7 +138,7 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
 
             handleBridgeEvent()
         }
-    }, [isConfirmed, hash, bridgeTransactionId, selectedPair, chainId, onSuccess])
+    }, [isConfirmed, hash, bridgeTransactionId, selectedPair, chainId, projectId, terminalToken, address, amount, onSuccess])
 
     const handleTokenLookup = async () => {
         if (!tokenAddress || !chainId) {
@@ -237,7 +241,7 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
             const suckerInfo = selectedPair.chainA.chainId === chainId ? selectedPair.chainA : selectedPair.chainB
             const destinationChain = getDestinationChain(selectedPair)
 
-            // Generate transaction ID
+            // Generate transaction ID for tracking (but don't store until confirmed)
             const transactionId = bridgeStorageService.generateTransactionId()
             setBridgeTransactionId(transactionId)
 
@@ -249,28 +253,7 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
                 token: terminalToken
             }, tokenDecimals)
 
-            // Store initial transaction data
-            bridgeStorageService.storeBridgeTransaction({
-                id: transactionId,
-                transactionHash: '', // Will be updated when transaction is sent
-                projectId,
-                sourceChainId: chainId,
-                targetChainId: destinationChain.chainId,
-                suckerAddress: suckerInfo.address as Address,
-                beneficiary: address,
-                token: terminalToken,
-                projectTokenCount: amount,
-                terminalTokenAmount: '0', // Will be filled from event
-                minTokensReclaimed: '0',
-                hashed: '',
-                index: '',
-                root: '',
-                caller: '0x0000000000000000000000000000000000000000' as Address,
-                timestamp: Date.now(),
-                status: 'pending'
-            })
-
-            // Call the prepare function
+            // Call the prepare function (transaction will be stored only when confirmed)
             writeContract({
                 ...prepareData,
                 address: suckerInfo.address as Address,
