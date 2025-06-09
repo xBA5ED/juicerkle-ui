@@ -6,6 +6,7 @@ import { getChainColor, getChainName } from '@/utils/chainUtils'
 import { bridgeStateService } from '@/services/bridgeStateService'
 import { useBridgeTransactionState } from '@/hooks/useBridgeStateMonitor'
 import { ArrowRight, CheckCircle, Clock, Send } from './Icons'
+import { ClaimButton } from './ClaimButton'
 
 interface BridgeTransactionCardProps {
   transaction: StoredBridgeTransaction
@@ -172,15 +173,9 @@ export function BridgeTransactionCard({ transaction }: BridgeTransactionCardProp
       
       {/* Action button */}
       {isClaimable && (
-        <button
-          className="w-full mt-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-          onClick={() => {
-            console.log('Claim functionality coming soon!', transaction)
-            // TODO: Implement claim functionality
-          }}
-        >
-          Claim on {getChainName(targetChainId)}
-        </button>
+        <div className="mt-4">
+          <ClaimButton transaction={transaction} />
+        </div>
       )}
     </div>
   )

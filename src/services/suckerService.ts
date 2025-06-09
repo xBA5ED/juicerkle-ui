@@ -1,6 +1,6 @@
 import { createPublicClient, http, type Address, parseUnits, type Hash } from 'viem'
 import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
-import { type JBOutboxTree } from '@/types/bridge'
+import { type JBOutboxTree, type JBClaim, type JBLeaf } from '@/types/bridge'
 
 const SUCKER_ABI = [
   {
@@ -21,6 +21,32 @@ const SUCKER_ABI = [
     stateMutability: 'payable',
     inputs: [
       { name: 'token', type: 'address' }
+    ],
+    outputs: []
+  },
+  {
+    name: 'claim',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      {
+        name: 'claimData',
+        type: 'tuple',
+        components: [
+          { name: 'token', type: 'address' },
+          {
+            name: 'leaf',
+            type: 'tuple',
+            components: [
+              { name: 'index', type: 'uint256' },
+              { name: 'beneficiary', type: 'address' },
+              { name: 'projectTokenCount', type: 'uint256' },
+              { name: 'terminalTokenAmount', type: 'uint256' }
+            ]
+          },
+          { name: 'proof', type: 'bytes32[32]' }
+        ]
+      }
     ],
     outputs: []
   },
@@ -71,6 +97,21 @@ const INSERT_TO_OUTBOX_TREE_EVENT_ABI = [
   }
 ] as const
 
+const CLAIM_EVENT_ABI = [
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: 'beneficiary', type: 'address' },
+      { indexed: true, name: 'token', type: 'address' },
+      { indexed: false, name: 'projectTokenCount', type: 'uint256' },
+      { indexed: false, name: 'terminalTokenAmount', type: 'uint256' },
+      { indexed: false, name: 'caller', type: 'address' }
+    ],
+    name: 'Claim',
+    type: 'event'
+  }
+] as const
+
 export interface PrepareParams {
   projectTokenCount: string
   beneficiary: Address
@@ -84,6 +125,14 @@ export interface InsertToOutboxTreeEvent {
   hashed: string
   index: string
   root: string
+  projectTokenCount: string
+  terminalTokenAmount: string
+  caller: Address
+}
+
+export interface ClaimEvent {
+  beneficiary: Address
+  token: Address
   projectTokenCount: string
   terminalTokenAmount: string
   caller: Address
@@ -201,6 +250,119 @@ class SuckerService {
       functionName: 'toRemote' as const,
       args: [tokenAddress],
       value: parseUnits('0.05', 18) // Temporary: always pay 0.05 ETH - TODO: implement ETH payment estimation for different sucker types
+    }
+  }
+
+  /**
+   * Prepare claim function data for calling sucker.claim()
+   * Convert proof from [32][32]byte to bytes32[32]
+   */
+  getClaimFunctionData(claimData: JBClaim) {
+    console.log('Preparing claim with data:', claimData)
+    
+    // Convert proof from array of byte arrays to array of hex strings
+    const convertedProof = claimData.Proof.map((byteArray: any) => {
+      if (Array.isArray(byteArray)) {
+        // Convert array of bytes to hex string
+        const hexString = '0x' + byteArray.map((byte: number) => 
+          byte.toString(16).padStart(2, '0')
+        ).join('')
+        console.log('Converted byte array to hex:', byteArray.slice(0, 4), '...', '→', hexString.slice(0, 10) + '...')
+        return hexString
+      } else if (typeof byteArray === 'string') {
+        // Already a hex string, ensure it has 0x prefix
+        return byteArray.startsWith('0x') ? byteArray : `0x${byteArray}`
+      } else {
+        console.warn('Unexpected proof element type:', typeof byteArray, byteArray)
+        return '0x0000000000000000000000000000000000000000000000000000000000000000'
+      }
+    })
+    
+    console.log('Converted proof length:', convertedProof.length)
+    console.log('First converted proof element:', convertedProof[0])
+    
+    return {
+      address: undefined as any, // Will be set by caller
+      abi: SUCKER_ABI,
+      functionName: 'claim' as const,
+      args: [{
+        token: claimData.Token,
+        leaf: {
+          index: claimData.Leaf.Index,
+          beneficiary: claimData.Leaf.Beneficiary,
+          projectTokenCount: claimData.Leaf.ProjectTokenCount,
+          terminalTokenAmount: claimData.Leaf.TerminalTokenAmount
+        },
+        proof: convertedProof
+      }]
+    }
+  }
+
+  /**
+   * Listen for Claim event after transaction confirmation
+   */
+  async listenForClaimEvent(
+    chainId: number,
+    suckerAddress: Address,
+    transactionHash: Hash,
+    onEvent: (event: ClaimEvent) => void
+  ): Promise<void> {
+    try {
+      const client = createClient(chainId)
+      
+      console.log('Waiting for claim transaction to be confirmed...', transactionHash)
+      
+      // Wait for transaction receipt
+      const receipt = await client.waitForTransactionReceipt({
+        hash: transactionHash,
+        timeout: 120000 // 2 minutes timeout
+      })
+      
+      console.log('Claim transaction confirmed, looking for Claim event...')
+      
+      // Find the Claim event in the transaction logs
+      const claimLogs = receipt.logs.filter(log => {
+        try {
+          // Try to decode as Claim event
+          const decoded = client.decodeEventLog({
+            abi: CLAIM_EVENT_ABI,
+            data: log.data,
+            topics: log.topics,
+          })
+          return decoded.eventName === 'Claim'
+        } catch {
+          return false
+        }
+      })
+      
+      if (claimLogs.length === 0) {
+        throw new Error('No Claim event found in transaction receipt')
+      }
+      
+      // Process the first claim event
+      const claimLog = claimLogs[0]
+      const decoded = client.decodeEventLog({
+        abi: CLAIM_EVENT_ABI,
+        data: claimLog.data,
+        topics: claimLog.topics,
+      })
+      
+      if (decoded.eventName === 'Claim') {
+        const event: ClaimEvent = {
+          beneficiary: decoded.args.beneficiary,
+          token: decoded.args.token,
+          projectTokenCount: decoded.args.projectTokenCount.toString(),
+          terminalTokenAmount: decoded.args.terminalTokenAmount.toString(),
+          caller: decoded.args.caller
+        }
+        
+        console.log('Claim event captured:', event)
+        onEvent(event)
+      }
+      
+    } catch (error) {
+      console.error('Failed to listen for Claim event:', error)
+      throw error
     }
   }
 }
