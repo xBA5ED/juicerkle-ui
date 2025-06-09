@@ -28,6 +28,8 @@ export function BridgeTransactionCard({ transaction }: BridgeTransactionCardProp
         return <Clock className="w-4 h-4" />
       case 'confirmed':
         return <Clock className="w-4 h-4" />
+      case 'waiting_to_send':
+        return <Clock className="w-4 h-4" />
       case 'sent_to_remote':
         return <Send className="w-4 h-4" />
       case 'ready_to_claim':
@@ -45,6 +47,8 @@ export function BridgeTransactionCard({ transaction }: BridgeTransactionCardProp
         return 'text-yellow-600 bg-yellow-50 border-yellow-200'
       case 'confirmed':
         return 'text-blue-600 bg-blue-50 border-blue-200'
+      case 'waiting_to_send':
+        return 'text-orange-600 bg-orange-50 border-orange-200'
       case 'sent_to_remote':
         return 'text-purple-600 bg-purple-50 border-purple-200'
       case 'ready_to_claim':
@@ -61,6 +65,8 @@ export function BridgeTransactionCard({ transaction }: BridgeTransactionCardProp
       case 'pending':
         return 'Confirming'
       case 'confirmed':
+        return 'Confirmed'
+      case 'waiting_to_send':
         return 'Waiting to send'
       case 'sent_to_remote':
         return 'Sent to destination'

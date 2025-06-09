@@ -16,6 +16,15 @@ const SUCKER_ABI = [
     outputs: []
   },
   {
+    name: 'toRemote',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [
+      { name: 'token', type: 'address' }
+    ],
+    outputs: []
+  },
+  {
     name: 'outboxOf',
     type: 'function',
     stateMutability: 'view',
@@ -182,6 +191,16 @@ class SuckerService {
         minTokensReclaimedBigInt,
         params.token
       ]
+    }
+  }
+
+  getToRemoteFunctionData(tokenAddress: Address) {
+    return {
+      address: undefined as any, // Will be set by caller
+      abi: SUCKER_ABI,
+      functionName: 'toRemote' as const,
+      args: [tokenAddress],
+      value: parseUnits('0.05', 18) // Temporary: always pay 0.05 ETH - TODO: implement ETH payment estimation for different sucker types
     }
   }
 }

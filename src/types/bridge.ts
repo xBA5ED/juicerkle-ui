@@ -1,7 +1,7 @@
 export type BridgeStatus = 'awaiting_bridge' | 'in_transit' | 'awaiting_claim' | 'claimed'
 
 // New transaction states for outbox tracking
-export type TransactionStatus = 'pending' | 'confirmed' | 'sent_to_remote' | 'ready_to_claim' | 'claimed'
+export type TransactionStatus = 'pending' | 'confirmed' | 'waiting_to_send' | 'sent_to_remote' | 'ready_to_claim' | 'claimed'
 
 // Outbox tree structures
 export interface Tree {

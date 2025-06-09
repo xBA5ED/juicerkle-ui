@@ -141,6 +141,31 @@ class BridgeStorageService {
       hash: tx.transactionHash.slice(0, 10)
     })))
   }
+
+  // Get transactions waiting to be sent for a specific sucker and token
+  getTransactionsWaitingToSend(suckerAddress: Address, tokenAddress: Address): StoredBridgeTransaction[] {
+    return this.getStoredTransactions().filter(
+      tx => tx.status === 'waiting_to_send' && 
+            tx.suckerAddress.toLowerCase() === suckerAddress.toLowerCase() &&
+            tx.token.toLowerCase() === tokenAddress.toLowerCase()
+    )
+  }
+
+  // Get all transactions that are waiting to be sent, grouped by sucker and token
+  getGroupedTransactionsWaitingToSend(): Map<string, StoredBridgeTransaction[]> {
+    const transactions = this.getStoredTransactions().filter(tx => tx.status === 'waiting_to_send')
+    const grouped = new Map<string, StoredBridgeTransaction[]>()
+
+    transactions.forEach(tx => {
+      const key = `${tx.suckerAddress.toLowerCase()}-${tx.token.toLowerCase()}`
+      if (!grouped.has(key)) {
+        grouped.set(key, [])
+      }
+      grouped.get(key)!.push(tx)
+    })
+
+    return grouped
+  }
 }
 
 export const bridgeStorageService = new BridgeStorageService()

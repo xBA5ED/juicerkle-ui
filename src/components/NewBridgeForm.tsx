@@ -108,7 +108,7 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
                                 root: eventData.root,
                                 caller: eventData.caller,
                                 timestamp: Date.now(),
-                                status: 'confirmed'
+                                status: 'waiting_to_send'
                             })
 
                             console.log('Bridge transaction confirmed and stored:', eventData)
