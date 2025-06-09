@@ -1,6 +1,8 @@
 import { type Address } from 'viem'
 import { suckerService } from './suckerService'
 import { bridgeStorageService, type StoredBridgeTransaction } from './bridgeStorageService'
+import { juicemerkleApiService } from './juicemerkleApiService'
+import { jbTokensService } from './jbTokensService'
 import { type TransactionStatus } from '@/types/bridge'
 
 export interface BridgeStateInfo {
@@ -16,6 +18,10 @@ class BridgeStateService {
   // Cache for outbox trees to avoid duplicate RPC calls
   private outboxCache = new Map<string, { data: any, timestamp: number }>()
   private readonly CACHE_TTL = 30000 // 30 seconds
+  
+  // Track last backend check time to implement 60-second interval
+  private lastBackendCheck = 0
+  private readonly BACKEND_CHECK_INTERVAL = 60000 // 60 seconds
 
   /**
    * Get outbox tree with caching to reduce RPC calls
@@ -41,6 +47,126 @@ class BridgeStateService {
     })
     
     return outboxTree
+  }
+
+  /**
+   * Check backend for claim data for sent_to_remote transactions
+   */
+  private async checkBackendForClaimData(): Promise<void> {
+    const now = Date.now()
+    
+    // Debug logging to see what transactions we have
+    const allTransactions = bridgeStorageService.getAllTransactions()
+    const sentToRemoteTransactions = allTransactions.filter(tx => tx.status === 'sent_to_remote')
+    const needingClaimData = bridgeStorageService.getTransactionsNeedingClaimData()
+    
+    console.log('Backend check debug:', {
+      totalTransactions: allTransactions.length,
+      sentToRemoteCount: sentToRemoteTransactions.length,
+      needingClaimDataCount: needingClaimData.length,
+      lastBackendCheck: this.lastBackendCheck,
+      timeSinceLastCheck: now - this.lastBackendCheck,
+      intervalRequired: this.BACKEND_CHECK_INTERVAL
+    })
+    
+    // Only check backend every 60 seconds
+    if (now - this.lastBackendCheck < this.BACKEND_CHECK_INTERVAL) {
+      console.log(`Skipping backend check - only ${now - this.lastBackendCheck}ms since last check (need ${this.BACKEND_CHECK_INTERVAL}ms)`)
+      return
+    }
+    
+    this.lastBackendCheck = now
+    
+    try {
+      const claimRequests = bridgeStorageService.getTransactionsForClaimsRequest()
+      
+      if (claimRequests.size === 0) {
+        console.log('No transactions need claim data from backend (after grouping)')
+        return
+      }
+      
+      console.log(`Checking backend for claim data for ${claimRequests.size} request groups`)
+      
+      // Process each group of transactions
+      for (const [key, { transactions, request }] of claimRequests) {
+        try {
+          console.log(`Checking backend for claims: chain ${request.chainId}, sucker ${request.sucker}, token ${request.token}, beneficiary ${request.beneficiary}`)
+          
+          const claims = await juicemerkleApiService.getClaimsForBeneficiary(
+            request.chainId,
+            request.sucker,
+            request.token,
+            request.beneficiary
+          )
+          
+          console.log(`Backend returned ${claims.length} claims for group ${key}`)
+          
+          // Match claims to our stored transactions
+          const matchedTransactionIds = new Set<string>()
+          
+          for (const claim of claims) {
+            // Try to match this claim to one of our transactions by leaf data
+            let matchedTransaction: StoredBridgeTransaction | null = null
+            
+            for (const tx of transactions) {
+              // Match by index, beneficiary, and amounts
+              if (
+                claim.Leaf.Index.toString() === tx.index 
+              ) {
+                matchedTransaction = tx
+                break
+              }
+            }
+            
+            if (matchedTransaction) {
+              // Update our stored transaction with claim data
+              bridgeStorageService.updateTransactionWithClaimData(matchedTransaction.id, claim)
+              matchedTransactionIds.add(matchedTransaction.id)
+              console.log(`Matched claim to transaction ${matchedTransaction.id}`)
+            } else {
+              // This is a claim we don't know about - create a new transaction
+              console.log('Found unknown claim from backend:', {
+                index: claim.Leaf.Index,
+                beneficiary: claim.Leaf.Beneficiary,
+                projectTokenCount: claim.Leaf.ProjectTokenCount,
+                terminalTokenAmount: claim.Leaf.TerminalTokenAmount,
+                token: claim.Token
+              })
+              
+              // Try to get project ID for this token
+              try {
+                const projectId = await jbTokensService.getProjectIdForToken(request.chainId, claim.Token as Address)
+                if (projectId) {
+                  const newTransaction = bridgeStorageService.createTransactionFromClaimData(
+                    claim,
+                    request.chainId,
+                    request.sucker,
+                    projectId
+                  )
+                  console.log(`Created new transaction ${newTransaction.id} from unknown backend claim`)
+                } else {
+                  console.log(`Skipping unknown claim - could not find project ID for token ${claim.Token}`)
+                }
+              } catch (error) {
+                console.error(`Failed to get project ID for unknown claim token ${claim.Token}:`, error)
+              }
+            }
+          }
+          
+          // Log any transactions that didn't get matched
+          const unmatchedTransactions = transactions.filter(tx => !matchedTransactionIds.has(tx.id))
+          if (unmatchedTransactions.length > 0) {
+            console.log(`${unmatchedTransactions.length} transactions in group ${key} did not get claim data from backend`)
+          }
+          
+        } catch (error) {
+          console.error(`Failed to check backend for group ${key}:`, error)
+        }
+      }
+      
+    } catch (error) {
+      console.error('Failed to check backend for claim data:', error)
+    }
   }
 
   /**
@@ -108,6 +234,9 @@ class BridgeStateService {
    * Check states for all confirmed transactions (optimized with batching)
    */
   async checkAllTransactionStates(): Promise<BridgeStateInfo[]> {
+    // Check backend for claim data first (rate limited to 60 seconds)
+    await this.checkBackendForClaimData()
+    
     const allTransactions = bridgeStorageService.getAllTransactions()
     
     // Filter to only confirmed transactions (have index) and not yet claimed
@@ -127,6 +256,9 @@ class BridgeStateService {
    * Check state for transactions on a specific chain (optimized with batching)
    */
   async checkTransactionStatesForChain(chainId: number): Promise<BridgeStateInfo[]> {
+    // Check backend for claim data first (rate limited to 60 seconds)
+    await this.checkBackendForClaimData()
+    
     const chainTransactions = bridgeStorageService.getTransactionsByChain(chainId)
     
     const confirmedTransactions = chainTransactions.filter(
@@ -281,6 +413,15 @@ class BridgeStateService {
       default:
         return 0
     }
+  }
+
+  /**
+   * Manual method to force backend check (for debugging)
+   */
+  async forceBackendCheck(): Promise<void> {
+    console.log('Forcing backend check...')
+    this.lastBackendCheck = 0 // Reset to force check
+    await this.checkBackendForClaimData()
   }
 }
 

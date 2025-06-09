@@ -74,3 +74,17 @@ export interface JBAccountingContext {
 export interface IJBTerminal {
   address: string
 }
+
+// Claim data structures for backend integration
+export interface JBLeaf {
+  Index: string
+  Beneficiary: string
+  ProjectTokenCount: string
+  TerminalTokenAmount: string
+}
+
+export interface JBClaim {
+  Token: string
+  Leaf: JBLeaf
+  Proof: string[] // Array of 32-byte hex strings
+}

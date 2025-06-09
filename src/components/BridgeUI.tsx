@@ -8,10 +8,49 @@ import { ConnectButton } from './ConnectButton'
 import { PendingBridgeActions } from './PendingBridgeActions'
 import { PlusIcon } from './Icons'
 import { suckerDiscoveryService } from '@/services/suckerDiscoveryService'
+import { bridgeStateService } from '@/services/bridgeStateService'
+import { bridgeStorageService } from '@/services/bridgeStorageService'
 
 export function BridgeUI() {
     const { isConnected } = useAccount()
     const [showNewBridgeForm, setShowNewBridgeForm] = useState(false)
+
+    // Add debug functions to global window for testing
+    useEffect(() => {
+        // @ts-ignore
+        window.debugBridge = {
+            forceBackendCheck: () => bridgeStateService.forceBackendCheck(),
+            getAllTransactions: () => bridgeStorageService.getAllTransactions(),
+            createTestTransaction: () => {
+                // Create a test transaction in sent_to_remote status for testing
+                const testTx = {
+                    id: bridgeStorageService.generateTransactionId(),
+                    transactionHash: '0x1234567890abcdef',
+                    projectId: '1',
+                    sourceChainId: 1,
+                    targetChainId: 10,
+                    suckerAddress: '0x0000000000000000000000000000000000000001' as any,
+                    beneficiary: '0x0000000000000000000000000000000000000002' as any,
+                    token: '0x0000000000000000000000000000000000000003' as any,
+                    projectTokenCount: '1000000000000000000',
+                    terminalTokenAmount: '1000000000000000000',
+                    minTokensReclaimed: '0',
+                    hashed: '0xhash',
+                    index: '0',
+                    root: '0xroot',
+                    caller: '0x0000000000000000000000000000000000000004' as any,
+                    claimProof: null,
+                    claimLeaf: null,
+                    timestamp: Date.now(),
+                    status: 'sent_to_remote' as any
+                }
+                bridgeStorageService.storeBridgeTransaction(testTx)
+                console.log('Created test transaction:', testTx)
+                return testTx
+            }
+        }
+        console.log('Debug functions available: window.debugBridge.forceBackendCheck(), window.debugBridge.getAllTransactions(), window.debugBridge.createTestTransaction()')
+    }, [])
 
     // Test sucker discovery on component mount
     // useEffect(() => {

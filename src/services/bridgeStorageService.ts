@@ -1,5 +1,5 @@
 import { type Address } from 'viem'
-import { type TransactionStatus } from '@/types/bridge'
+import { type TransactionStatus, type JBLeaf, type JBClaim } from '@/types/bridge'
 
 export interface StoredBridgeTransaction {
   // Transaction identifiers
@@ -24,6 +24,10 @@ export interface StoredBridgeTransaction {
   index: string
   root: string
   caller: Address
+  
+  // Claim data from backend (populated when ready_to_claim)
+  claimProof: string[] | null
+  claimLeaf: JBLeaf | null
   
   // Metadata
   timestamp: number
@@ -165,6 +169,112 @@ class BridgeStorageService {
     })
 
     return grouped
+  }
+
+  // Get transactions that have been sent to remote and need claim data
+  getTransactionsNeedingClaimData(): StoredBridgeTransaction[] {
+    return this.getStoredTransactions().filter(
+      tx => tx.status === 'sent_to_remote' && (tx.claimProof === null || tx.claimProof === undefined)
+    )
+  }
+
+  // Get transactions for backend API call, grouped by destination chain/sucker/token/beneficiary
+  getTransactionsForClaimsRequest(): Map<string, { transactions: StoredBridgeTransaction[], request: { chainId: number, sucker: Address, token: Address, beneficiary: Address } }> {
+    const transactions = this.getTransactionsNeedingClaimData()
+    console.log('Transactions needing claim data:', transactions.map(tx => ({
+      id: tx.id,
+      status: tx.status,
+      claimProof: tx.claimProof,
+      targetChainId: tx.targetChainId,
+      suckerAddress: tx.suckerAddress,
+      token: tx.token,
+      beneficiary: tx.beneficiary
+    })))
+    
+    const grouped = new Map<string, { transactions: StoredBridgeTransaction[], request: { chainId: number, sucker: Address, token: Address, beneficiary: Address } }>()
+
+    transactions.forEach(tx => {
+      // Group by destination chain, destination sucker, terminal token, and beneficiary
+      const key = `${tx.targetChainId}-${tx.suckerAddress.toLowerCase()}-${tx.token.toLowerCase()}-${tx.beneficiary.toLowerCase()}`
+      console.log(`Grouping transaction ${tx.id} with key: ${key}`)
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          transactions: [],
+          request: {
+            chainId: tx.targetChainId,
+            sucker: tx.suckerAddress,
+            token: tx.token,
+            beneficiary: tx.beneficiary
+          }
+        })
+      }
+      grouped.get(key)!.transactions.push(tx)
+    })
+
+    console.log(`Created ${grouped.size} groups for backend requests`)
+    return grouped
+  }
+
+  // Update transaction with claim data from backend
+  updateTransactionWithClaimData(transactionId: string, claimData: JBClaim): void {
+    const transactions = this.getStoredTransactions()
+    const transaction = transactions.find(tx => tx.id === transactionId)
+    
+    if (!transaction) {
+      console.warn(`Transaction ${transactionId} not found when updating with claim data`)
+      return
+    }
+
+    transaction.claimProof = claimData.Proof
+    transaction.claimLeaf = claimData.Leaf
+    transaction.status = 'ready_to_claim'
+    
+    this.saveTransactions(transactions)
+    console.log(`Updated transaction ${transactionId} with claim data and set status to ready_to_claim`)
+  }
+
+  // Get transactions ready to claim (have proof data)
+  getTransactionsReadyToClaim(): StoredBridgeTransaction[] {
+    return this.getStoredTransactions().filter(
+      tx => tx.status === 'ready_to_claim' && tx.claimProof !== null && tx.claimLeaf !== null
+    )
+  }
+
+  // Create a new transaction from backend claim data (for unknown claims)
+  createTransactionFromClaimData(
+    claimData: JBClaim,
+    chainId: number,
+    suckerAddress: Address,
+    projectId: string
+  ): StoredBridgeTransaction {
+    const transaction: StoredBridgeTransaction = {
+      id: this.generateTransactionId(),
+      transactionHash: '', // Unknown - this came from backend
+      projectId,
+      sourceChainId: 0, // Unknown
+      targetChainId: chainId,
+      suckerAddress,
+      beneficiary: claimData.Leaf.Beneficiary as Address,
+      token: claimData.Token as Address,
+      projectTokenCount: claimData.Leaf.ProjectTokenCount,
+      terminalTokenAmount: claimData.Leaf.TerminalTokenAmount,
+      minTokensReclaimed: '0', // Unknown
+      hashed: '', // Unknown
+      index: claimData.Leaf.Index,
+      root: '', // Unknown
+      caller: '0x0000000000000000000000000000000000000000',
+      claimProof: claimData.Proof,
+      claimLeaf: claimData.Leaf,
+      timestamp: Date.now(),
+      status: 'ready_to_claim'
+    }
+
+    const transactions = this.getStoredTransactions()
+    transactions.push(transaction)
+    this.saveTransactions(transactions)
+    
+    console.log(`Created new transaction ${transaction.id} from backend claim data`)
+    return transaction
   }
 }
 

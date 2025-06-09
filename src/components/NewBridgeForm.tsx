@@ -107,6 +107,8 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
                                 index: eventData.index,
                                 root: eventData.root,
                                 caller: eventData.caller,
+                                claimProof: null,
+                                claimLeaf: null,
                                 timestamp: Date.now(),
                                 status: 'waiting_to_send'
                             })
