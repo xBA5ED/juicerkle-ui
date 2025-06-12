@@ -1,5 +1,5 @@
 import { type Address } from 'viem'
-import { type TransactionStatus, type JBLeaf, type JBClaim } from '@/types/bridge'
+import { type TransactionStatus, type JBLeaf, type JBClaim, type SuckerBridgeInfo } from '@/types/bridge'
 
 export interface StoredBridgeTransaction {
   // Transaction identifiers
@@ -18,6 +18,9 @@ export interface StoredBridgeTransaction {
   projectTokenCount: string
   terminalTokenAmount: string
   minTokensReclaimed: string
+  
+  // Bridge implementation info (optional, for enhanced UX)
+  bridgeInfo?: SuckerBridgeInfo
   
   // Event data from InsertToOutboxTree
   hashed: string

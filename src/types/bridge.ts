@@ -46,11 +46,13 @@ export interface SuckerPair {
     chainId: number
     address: string
     projectId: string
+    bridgeInfo?: SuckerBridgeInfo // Optional bridge detection info
   }
   chainB: {
     chainId: number
     address: string
     projectId: string
+    bridgeInfo?: SuckerBridgeInfo // Optional bridge detection info
   }
 }
 
@@ -87,4 +89,22 @@ export interface JBClaim {
   Token: string
   Leaf: JBLeaf
   Proof: string[] // Array of 32-byte hex strings
+}
+
+// Bridge types for underlying implementations
+export type BridgeType = 'ArbitrumCanonical' | 'OptimismCanonical' | 'CCIP' | 'unknown'
+
+export interface BridgeInfo {
+  type: BridgeType
+  requiresPayment: boolean // Whether toRemote() requires payment
+  hasAdditionalSteps: boolean // Whether there are steps after sent_to_remote
+  displayName: string
+  description: string
+}
+
+export interface SuckerBridgeInfo {
+  suckerAddress: string
+  chainId: number
+  deployerAddress: string
+  bridgeInfo: BridgeInfo
 }

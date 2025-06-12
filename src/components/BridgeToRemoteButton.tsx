@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
-import { type Address, type Hash } from 'viem'
+import { useState, useEffect } from 'react'
+import { type Address } from 'viem'
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { suckerService } from '@/services/suckerService'
-import { bridgeStorageService } from '@/services/bridgeStorageService'
+import { bridgeDetectionService } from '@/services/bridgeDetectionService'
 import { getChainName } from '@/utils/chainUtils'
 import { Send } from './Icons'
 
@@ -24,8 +24,32 @@ export function BridgeToRemoteButton({
   transactionCount 
 }: BridgeToRemoteButtonProps) {
   const [isProcessing, setIsProcessing] = useState(false)
+  const [requiresPayment, setRequiresPayment] = useState(false)
+  const [bridgeName, setBridgeName] = useState<string>('Unknown Bridge')
   
   const { writeContract, data: hash, error, isPending } = useWriteContract()
+  
+  // Detect bridge implementation on component mount
+  useEffect(() => {
+    const detectBridge = async () => {
+      try {
+        const [paymentRequired, displayName] = await Promise.all([
+          bridgeDetectionService.requiresPaymentForToRemote(sourceChainId, suckerAddress),
+          bridgeDetectionService.getBridgeDisplayName(sourceChainId, suckerAddress)
+        ])
+        
+        setRequiresPayment(paymentRequired)
+        setBridgeName(displayName)
+      } catch (error) {
+        console.warn('Failed to detect bridge requirements:', error)
+        // Use conservative defaults
+        setRequiresPayment(true)
+        setBridgeName('Unknown Bridge')
+      }
+    }
+    
+    detectBridge()
+  }, [sourceChainId, suckerAddress])
   
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({
     hash,
@@ -79,7 +103,15 @@ export function BridgeToRemoteButton({
         Send the merkle root to {getChainName(targetChainId)} to make all pending transactions claimable.
         Anyone can do this, or you can wait for someone else to pay the gas.
         <br />
-        <span className="font-medium">Cost: 0.05 ETH + gas fees</span>
+        <span className="font-medium">
+          Bridge: {bridgeName}
+          {requiresPayment ? ' • Cost: ~0.05 ETH + gas fees' : ' • Free (gas only)'}
+        </span>
+        {requiresPayment && (
+          <span className="block text-orange-600 dark:text-orange-400 text-xs mt-1">
+            ⚠️ This bridge requires payment for cross-chain transfers
+          </span>
+        )}
       </p>
       
       <button

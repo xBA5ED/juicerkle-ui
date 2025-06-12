@@ -160,6 +160,17 @@ export function BridgeTransactionCard({ transaction }: BridgeTransactionCardProp
       <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
         <div>Project ID: {transaction.projectId}</div>
         <div className="truncate">TX: {transaction.transactionHash.slice(0, 10)}...{transaction.transactionHash.slice(-8)}</div>
+        {transaction.bridgeInfo && (
+          <div className="flex items-center gap-1">
+            <span>Bridge:</span>
+            <span className="font-medium text-gray-700 dark:text-gray-300">
+              {transaction.bridgeInfo.bridgeInfo.displayName}
+            </span>
+            {transaction.bridgeInfo.bridgeInfo.requiresPayment && (
+              <span className="text-orange-600 text-xs">⚠️ Requires payment</span>
+            )}
+          </div>
+        )}
         {stateInfo?.outboxIndex !== undefined && (
           <div>Position: {stateInfo.outboxIndex} / {stateInfo.numberOfClaimsSent} sent</div>
         )}

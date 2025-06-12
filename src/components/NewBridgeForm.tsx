@@ -8,6 +8,7 @@ import { suckerDiscoveryService } from '@/services/suckerDiscoveryService'
 import { tokenService } from '@/services/tokenService'
 import { suckerService } from '@/services/suckerService'
 import { bridgeStorageService } from '@/services/bridgeStorageService'
+import { bridgeDetectionService } from '@/services/bridgeDetectionService'
 import { SuckerPair } from '@/types/bridge'
 import { getChainName } from '@/utils/chainUtils'
 import { type Address, parseUnits } from 'viem'
@@ -87,9 +88,22 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
                         chainId,
                         suckerInfo.address as Address,
                         hash,
-                        (eventData) => {
+                        async (eventData) => {
                             // Store the complete transaction data only when confirmed
                             const destinationChain = getDestinationChain(selectedPair)
+                            
+                            // Detect bridge implementation for enhanced UX
+                            let bridgeInfo
+                            try {
+                                bridgeInfo = await bridgeDetectionService.detectSuckerBridge(
+                                    chainId,
+                                    suckerInfo.address as Address
+                                )
+                                console.log('Detected bridge implementation:', bridgeInfo)
+                            } catch (error) {
+                                console.warn('Failed to detect bridge implementation:', error)
+                                // Continue without bridge info - it's optional
+                            }
                             
                             bridgeStorageService.storeBridgeTransaction({
                                 id: bridgeTransactionId,
@@ -103,6 +117,7 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
                                 projectTokenCount: amount,
                                 terminalTokenAmount: eventData.terminalTokenAmount,
                                 minTokensReclaimed: '0', // TODO: Add slippage protection
+                                bridgeInfo, // Include bridge detection info
                                 hashed: eventData.hashed,
                                 index: eventData.index,
                                 root: eventData.root,
