@@ -94,12 +94,21 @@ export interface JBClaim {
 // Bridge types for underlying implementations
 export type BridgeType = 'ArbitrumCanonical' | 'OptimismCanonical' | 'CCIP' | 'unknown'
 
-export interface BridgeInfo {
-  type: BridgeType
+// Bridge direction configuration
+export interface BridgeDirectionConfig {
   requiresPayment: boolean // Whether toRemote() requires payment
   hasAdditionalSteps: boolean // Whether there are steps after sent_to_remote
+  estimatedTimeMinutes: number // Estimated completion time
+}
+
+export interface BridgeInfo {
+  type: BridgeType
   displayName: string
   description: string
+  // Direction-specific configurations
+  l1ToL2: BridgeDirectionConfig // Mainnet to L2 (e.g., Ethereum -> Optimism)
+  l2ToL1: BridgeDirectionConfig // L2 to mainnet (e.g., Optimism -> Ethereum)
+  l2ToL2: BridgeDirectionConfig // L2 to L2 (e.g., Optimism -> Arbitrum)
 }
 
 export interface SuckerBridgeInfo {

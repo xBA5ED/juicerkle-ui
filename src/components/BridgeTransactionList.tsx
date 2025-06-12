@@ -15,43 +15,57 @@ export function BridgeTransactionList() {
     enabled: true
   })
   
-  useEffect(() => {
-    const loadTransactions = () => {
-      try {
-        setLoading(true)
-        
-        // Remove any duplicates before loading
-        bridgeStorageService.removeDuplicateTransactions()
-        
-        const storedTransactions = bridgeStorageService.getAllTransactions()
-        
-        // Filter out claimed transactions and sort by timestamp (newest first)
-        const activeTransactions = storedTransactions.filter(tx => tx.status !== 'claimed')
-        const sortedTransactions = activeTransactions.sort((a, b) => b.timestamp - a.timestamp)
-        setTransactions(sortedTransactions)
-      } catch (err) {
-        console.error('Failed to load transactions:', err)
-      } finally {
-        setLoading(false)
-      }
+  const loadTransactions = () => {
+    try {
+      setLoading(true)
+      
+      // Remove any duplicates before loading
+      bridgeStorageService.removeDuplicateTransactions()
+      
+      const storedTransactions = bridgeStorageService.getAllTransactions()
+      
+      // Filter out claimed transactions and sort by timestamp (newest first)
+      const activeTransactions = storedTransactions.filter(tx => tx.status !== 'claimed')
+      const sortedTransactions = activeTransactions.sort((a, b) => b.timestamp - a.timestamp)
+      setTransactions(sortedTransactions)
+    } catch (err) {
+      console.error('Failed to load transactions:', err)
+    } finally {
+      setLoading(false)
     }
-    
+  }
+  
+  useEffect(() => {
     // Load initially
     loadTransactions()
     
-    // Listen for localStorage changes (when new transactions are added)
+    // Listen for localStorage changes (when new transactions are added from other tabs)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'juicerkle-bridge-transactions') {
         loadTransactions()
       }
     }
     
+    // Listen for custom events (when new transactions are added in same tab)
+    const handleCustomStorageChange = () => {
+      loadTransactions()
+    }
+    
     window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('bridge-transactions-updated', handleCustomStorageChange)
     
     return () => {
       window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('bridge-transactions-updated', handleCustomStorageChange)
     }
   }, [])
+  
+  // Refresh when state monitoring detects changes
+  useEffect(() => {
+    if (stateInfos.length > 0) {
+      loadTransactions()
+    }
+  }, [stateInfos, lastCheckTime])
   
   if (loading) {
     return (

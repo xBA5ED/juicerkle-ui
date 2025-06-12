@@ -28,35 +28,87 @@ const DEPLOYER_TO_BRIDGE_TYPE: Record<string, BridgeType> = {
   '0x6666666666666666666666666666666666666666': 'CCIP',
 }
 
-// Bridge configuration and characteristics
+// Bridge configuration and characteristics with directional support
 const BRIDGE_CONFIGS: Record<BridgeType, BridgeInfo> = {
   ArbitrumCanonical: {
     type: 'ArbitrumCanonical',
-    requiresPayment: false,
-    hasAdditionalSteps: false,
     displayName: 'Arbitrum Canonical Bridge',
-    description: 'Official Arbitrum bridge for secure cross-chain transfers'
+    description: 'Official Arbitrum bridge for secure cross-chain transfers',
+    l1ToL2: {
+      requiresPayment: false,
+      hasAdditionalSteps: false,
+      estimatedTimeMinutes: 10
+    },
+    l2ToL1: {
+      requiresPayment: true, // L2 -> L1 requires payment for finalization
+      hasAdditionalSteps: true, // 7-day challenge period
+      estimatedTimeMinutes: 10080 // ~7 days
+    },
+    l2ToL2: {
+      requiresPayment: true,
+      hasAdditionalSteps: true,
+      estimatedTimeMinutes: 20
+    }
   },
   OptimismCanonical: {
     type: 'OptimismCanonical',
-    requiresPayment: false,
-    hasAdditionalSteps: false,
     displayName: 'Optimism Canonical Bridge',
-    description: 'Official Optimism bridge for secure cross-chain transfers'
+    description: 'Official Optimism bridge for secure cross-chain transfers',
+    l1ToL2: {
+      requiresPayment: false,
+      hasAdditionalSteps: false,
+      estimatedTimeMinutes: 5
+    },
+    l2ToL1: {
+      requiresPayment: true, // L2 -> L1 requires payment for finalization
+      hasAdditionalSteps: true, // 7-day challenge period
+      estimatedTimeMinutes: 10080 // ~7 days
+    },
+    l2ToL2: {
+      requiresPayment: true,
+      hasAdditionalSteps: true,
+      estimatedTimeMinutes: 15
+    }
   },
   CCIP: {
     type: 'CCIP',
-    requiresPayment: true,
-    hasAdditionalSteps: true,
     displayName: 'Chainlink CCIP',
-    description: 'Chainlink Cross-Chain Interoperability Protocol'
+    description: 'Chainlink Cross-Chain Interoperability Protocol',
+    l1ToL2: {
+      requiresPayment: true,
+      hasAdditionalSteps: true,
+      estimatedTimeMinutes: 20
+    },
+    l2ToL1: {
+      requiresPayment: true,
+      hasAdditionalSteps: true,
+      estimatedTimeMinutes: 25
+    },
+    l2ToL2: {
+      requiresPayment: true,
+      hasAdditionalSteps: true,
+      estimatedTimeMinutes: 30
+    }
   },
   unknown: {
     type: 'unknown',
-    requiresPayment: true, // Conservative default - assume payment required
-    hasAdditionalSteps: true, // Conservative default - assume additional steps
     displayName: 'Unknown Bridge',
-    description: 'Bridge implementation could not be determined'
+    description: 'Bridge implementation could not be determined',
+    l1ToL2: {
+      requiresPayment: true, // Conservative defaults
+      hasAdditionalSteps: true,
+      estimatedTimeMinutes: 30
+    },
+    l2ToL1: {
+      requiresPayment: true,
+      hasAdditionalSteps: true,
+      estimatedTimeMinutes: 60
+    },
+    l2ToL2: {
+      requiresPayment: true,
+      hasAdditionalSteps: true,
+      estimatedTimeMinutes: 45
+    }
   }
 }
 
@@ -94,6 +146,39 @@ class BridgeDetectionService {
       console.error(`Failed to get deployer for sucker ${suckerAddress} on chain ${chainId}:`, error)
       throw error
     }
+  }
+
+  /**
+   * Determine bridge direction based on source and target chain IDs
+   */
+  private getBridgeDirection(sourceChainId: number, targetChainId: number): 'l1ToL2' | 'l2ToL1' | 'l2ToL2' {
+    const L1_CHAINS = [1, 11155111] // Ethereum mainnet and Sepolia
+    const L2_CHAINS = [10, 8453, 42161, 11155420, 84532, 421614] // Optimism, Base, Arbitrum + testnets
+    
+    const isSourceL1 = L1_CHAINS.includes(sourceChainId)
+    const isTargetL1 = L1_CHAINS.includes(targetChainId)
+    const isSourceL2 = L2_CHAINS.includes(sourceChainId)
+    const isTargetL2 = L2_CHAINS.includes(targetChainId)
+    
+    if (isSourceL1 && isTargetL2) {
+      return 'l1ToL2'
+    } else if (isSourceL2 && isTargetL1) {
+      return 'l2ToL1'
+    } else if (isSourceL2 && isTargetL2) {
+      return 'l2ToL2'
+    } else {
+      // Default to l2ToL2 for unknown combinations (conservative)
+      return 'l2ToL2'
+    }
+  }
+
+  /**
+   * Get bridge direction configuration for a specific bridge type and direction
+   */
+  getBridgeDirectionConfig(bridgeType: BridgeType, sourceChainId: number, targetChainId: number): BridgeDirectionConfig {
+    const bridgeInfo = this.getBridgeInfo(bridgeType)
+    const direction = this.getBridgeDirection(sourceChainId, targetChainId)
+    return bridgeInfo[direction]
   }
 
   /**
@@ -173,19 +258,30 @@ class BridgeDetectionService {
   }
 
   /**
-   * Check if a bridge requires payment for toRemote() calls
+   * Check if a bridge requires payment for toRemote() calls (direction-aware)
    */
-  async requiresPaymentForToRemote(chainId: number, suckerAddress: Address): Promise<boolean> {
-    const bridgeInfo = await this.detectSuckerBridge(chainId, suckerAddress)
-    return bridgeInfo.bridgeInfo.requiresPayment
+  async requiresPaymentForToRemote(sourceChainId: number, suckerAddress: Address, targetChainId: number): Promise<boolean> {
+    const bridgeInfo = await this.detectSuckerBridge(sourceChainId, suckerAddress)
+    const directionConfig = this.getBridgeDirectionConfig(bridgeInfo.bridgeInfo.type, sourceChainId, targetChainId)
+    return directionConfig.requiresPayment
   }
 
   /**
-   * Check if a bridge has additional steps after sent_to_remote
+   * Check if a bridge has additional steps after sent_to_remote (direction-aware)
    */
-  async hasAdditionalStepsAfterSentToRemote(chainId: number, suckerAddress: Address): Promise<boolean> {
-    const bridgeInfo = await this.detectSuckerBridge(chainId, suckerAddress)
-    return bridgeInfo.bridgeInfo.hasAdditionalSteps
+  async hasAdditionalStepsAfterSentToRemote(sourceChainId: number, suckerAddress: Address, targetChainId: number): Promise<boolean> {
+    const bridgeInfo = await this.detectSuckerBridge(sourceChainId, suckerAddress)
+    const directionConfig = this.getBridgeDirectionConfig(bridgeInfo.bridgeInfo.type, sourceChainId, targetChainId)
+    return directionConfig.hasAdditionalSteps
+  }
+
+  /**
+   * Get estimated completion time for a bridge (direction-aware)
+   */
+  async getBridgeEstimatedTime(sourceChainId: number, suckerAddress: Address, targetChainId: number): Promise<number> {
+    const bridgeInfo = await this.detectSuckerBridge(sourceChainId, suckerAddress)
+    const directionConfig = this.getBridgeDirectionConfig(bridgeInfo.bridgeInfo.type, sourceChainId, targetChainId)
+    return directionConfig.estimatedTimeMinutes
   }
 
   /**
@@ -194,6 +290,25 @@ class BridgeDetectionService {
   async getBridgeDisplayName(chainId: number, suckerAddress: Address): Promise<string> {
     const bridgeInfo = await this.detectSuckerBridge(chainId, suckerAddress)
     return bridgeInfo.bridgeInfo.displayName
+  }
+
+  /**
+   * Get bridge direction configuration for a transaction
+   */
+  async getBridgeConfigForTransaction(sourceChainId: number, suckerAddress: Address, targetChainId: number): Promise<{
+    bridgeInfo: BridgeInfo
+    directionConfig: BridgeDirectionConfig
+    direction: 'l1ToL2' | 'l2ToL1' | 'l2ToL2'
+  }> {
+    const bridgeInfo = await this.detectSuckerBridge(sourceChainId, suckerAddress)
+    const direction = this.getBridgeDirection(sourceChainId, targetChainId)
+    const directionConfig = bridgeInfo.bridgeInfo[direction]
+    
+    return {
+      bridgeInfo: bridgeInfo.bridgeInfo,
+      directionConfig,
+      direction
+    }
   }
 
   /**

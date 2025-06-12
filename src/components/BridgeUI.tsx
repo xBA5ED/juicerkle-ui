@@ -5,7 +5,6 @@ import { useAccount } from 'wagmi'
 import { BridgeTransactionList } from './BridgeTransactionList'
 import { NewBridgeForm } from './NewBridgeForm'
 import { ConnectButton } from './ConnectButton'
-import { PendingBridgeActions } from './PendingBridgeActions'
 import { PlusIcon } from './Icons'
 import { suckerDiscoveryService } from '@/services/suckerDiscoveryService'
 import { bridgeStateService } from '@/services/bridgeStateService'
@@ -127,12 +126,6 @@ export function BridgeUI() {
                         onSuccess={handleNewBridgeSuccess}
                         onCancel={() => setShowNewBridgeForm(false)}
                     />
-                </div>
-            )}
-
-            {isConnected && (
-                <div className="mb-8">
-                    <PendingBridgeActions />
                 </div>
             )}
 

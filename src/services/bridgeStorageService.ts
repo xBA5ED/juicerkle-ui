@@ -53,6 +53,8 @@ class BridgeStorageService {
   private saveTransactions(transactions: StoredBridgeTransaction[]): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions))
+      // Dispatch custom event to notify components in the same tab
+      window.dispatchEvent(new CustomEvent('bridge-transactions-updated'))
     } catch (error) {
       console.error('Failed to save bridge transactions:', error)
     }
