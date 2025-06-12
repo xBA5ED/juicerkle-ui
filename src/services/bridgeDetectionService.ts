@@ -15,17 +15,17 @@ const SUCKER_DEPLOYER_ABI = [
 
 // Placeholder deployer address mappings (will be updated with real values)
 const DEPLOYER_TO_BRIDGE_TYPE: Record<string, BridgeType> = {
-  // ArbitrumCanonical deployer addresses (placeholder)
-  '0x1111111111111111111111111111111111111111': 'ArbitrumCanonical',
-  '0x2222222222222222222222222222222222222222': 'ArbitrumCanonical',
+  // ArbitrumCanonical deployer addresses
+  '0x5021c398d556925315c73a8f559d98117723967a': 'ArbitrumCanonical',
   
-  // OptimismCanonical deployer addresses (placeholder)
-  '0x3333333333333333333333333333333333333333': 'OptimismCanonical',
-  '0x4444444444444444444444444444444444444444': 'OptimismCanonical',
+  // OptimismCanonical deployer addresses
+  '0x8ca8816d6740fe474be2399f5fd7996e79e055a0': 'OptimismCanonical', // BASE
+  '0x5de5ea969fe0f4e2ee9efc50591857fd83ed7095': 'OptimismCanonical', // OP
   
   // CCIP deployer addresses (placeholder)
-  '0x5555555555555555555555555555555555555555': 'CCIP',
-  '0x6666666666666666666666666666666666666666': 'CCIP',
+  '0x34b40205b249e5733cf93d86b7c9783b015dd3e7': 'CCIP',
+  '0xde901ebafc70d545f9d43034308c136ce8c94a5c': 'CCIP',
+  '0x9d4858cc9d3552507eeabce722787afef64c615e': 'CCIP',
 }
 
 // Bridge configuration and characteristics with directional support
