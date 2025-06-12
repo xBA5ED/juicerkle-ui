@@ -243,13 +243,13 @@ class SuckerService {
     }
   }
 
-  getToRemoteFunctionData(tokenAddress: Address) {
+  getToRemoteFunctionData(tokenAddress: Address, requiresPayment: boolean = true) {
     return {
       address: undefined as any, // Will be set by caller
       abi: SUCKER_ABI,
       functionName: 'toRemote' as const,
       args: [tokenAddress],
-      value: parseUnits('0.05', 18) // Temporary: always pay 0.05 ETH - TODO: implement ETH payment estimation for different sucker types
+      value: requiresPayment ? parseUnits('0.05', 18) : 0n // Only send ETH if payment is required
     }
   }
 

@@ -61,7 +61,7 @@ export function BridgeToRemoteButton({
     try {
       setIsProcessing(true)
       
-      const contractData = suckerService.getToRemoteFunctionData(tokenAddress)
+      const contractData = suckerService.getToRemoteFunctionData(tokenAddress, requiresPayment)
       
       writeContract({
         address: suckerAddress,
