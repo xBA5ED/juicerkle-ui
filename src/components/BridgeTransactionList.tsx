@@ -25,8 +25,9 @@ export function BridgeTransactionList() {
         
         const storedTransactions = bridgeStorageService.getAllTransactions()
         
-        // Sort by timestamp (newest first)
-        const sortedTransactions = storedTransactions.sort((a, b) => b.timestamp - a.timestamp)
+        // Filter out claimed transactions and sort by timestamp (newest first)
+        const activeTransactions = storedTransactions.filter(tx => tx.status !== 'claimed')
+        const sortedTransactions = activeTransactions.sort((a, b) => b.timestamp - a.timestamp)
         setTransactions(sortedTransactions)
       } catch (err) {
         console.error('Failed to load transactions:', err)

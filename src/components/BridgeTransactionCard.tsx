@@ -25,9 +25,7 @@ export function BridgeTransactionCard({ transaction }: BridgeTransactionCardProp
   // Helper functions for status display
   const getStatusIcon = () => {
     switch (currentStatus) {
-      case 'pending':
-        return <Clock className="w-4 h-4" />
-      case 'confirmed':
+      case 'initiated':
         return <Clock className="w-4 h-4" />
       case 'waiting_to_send':
         return <Clock className="w-4 h-4" />
@@ -44,10 +42,8 @@ export function BridgeTransactionCard({ transaction }: BridgeTransactionCardProp
 
   const getStatusColor = () => {
     switch (currentStatus) {
-      case 'pending':
+      case 'initiated':
         return 'text-yellow-600 bg-yellow-50 border-yellow-200'
-      case 'confirmed':
-        return 'text-blue-600 bg-blue-50 border-blue-200'
       case 'waiting_to_send':
         return 'text-orange-600 bg-orange-50 border-orange-200'
       case 'sent_to_remote':
@@ -63,10 +59,8 @@ export function BridgeTransactionCard({ transaction }: BridgeTransactionCardProp
 
   const getStatusText = () => {
     switch (currentStatus) {
-      case 'pending':
-        return 'Confirming'
-      case 'confirmed':
-        return 'Confirmed'
+      case 'initiated':
+        return 'Bridge Initiated'
       case 'waiting_to_send':
         return 'Waiting to send'
       case 'sent_to_remote':

@@ -180,8 +180,8 @@ class BridgeStateService {
     let numberOfClaimsSent: number | undefined
 
     try {
-      // Only check outbox state for transactions that have been confirmed (have an index)
-      if ((transaction.status === 'confirmed' || transaction.status === 'waiting_to_send') && transaction.index) {
+      // Only check outbox state for transactions that have been initiated (have an index)
+      if ((transaction.status === 'initiated' || transaction.status === 'waiting_to_send') && transaction.index) {
         outboxIndex = parseInt(transaction.index)
         
         // Get the outbox tree from the source sucker (cached)
@@ -239,9 +239,9 @@ class BridgeStateService {
     
     const allTransactions = bridgeStorageService.getAllTransactions()
     
-    // Filter to only confirmed transactions (have index) and not yet claimed
+    // Filter to only initiated transactions (have index) and not yet claimed
     const confirmedTransactions = allTransactions.filter(
-      tx => tx.status === 'confirmed' || tx.status === 'waiting_to_send' || tx.status === 'sent_to_remote'
+      tx => tx.status === 'initiated' || tx.status === 'waiting_to_send' || tx.status === 'sent_to_remote'
     )
     
     // If no transactions need checking, return empty array
@@ -262,7 +262,7 @@ class BridgeStateService {
     const chainTransactions = bridgeStorageService.getTransactionsByChain(chainId)
     
     const confirmedTransactions = chainTransactions.filter(
-      tx => (tx.status === 'confirmed' || tx.status === 'waiting_to_send' || tx.status === 'sent_to_remote') && 
+      tx => (tx.status === 'initiated' || tx.status === 'waiting_to_send' || tx.status === 'sent_to_remote') && 
            tx.sourceChainId === chainId // Only check outbox on source chain
     )
     
@@ -282,7 +282,7 @@ class BridgeStateService {
     const groupedTx = new Map<string, StoredBridgeTransaction[]>()
     
     transactions.forEach(tx => {
-      if (tx.status === 'confirmed' || tx.status === 'waiting_to_send' || tx.status === 'sent_to_remote') {
+      if (tx.status === 'initiated' || tx.status === 'waiting_to_send' || tx.status === 'sent_to_remote') {
         const key = `${tx.sourceChainId}-${tx.suckerAddress}-${tx.token}`
         if (!groupedTx.has(key)) {
           groupedTx.set(key, [])
@@ -376,10 +376,8 @@ class BridgeStateService {
    */
   getStatusDescription(status: TransactionStatus): string {
     switch (status) {
-      case 'pending':
-        return 'Transaction pending confirmation'
-      case 'confirmed':
-        return 'Transaction confirmed'
+      case 'initiated':
+        return 'Bridge transaction initiated and ready to be sent'
       case 'waiting_to_send':
         return 'Added to outbox tree, waiting to be sent'
       case 'sent_to_remote':
@@ -398,10 +396,8 @@ class BridgeStateService {
    */
   getStatusProgress(status: TransactionStatus): number {
     switch (status) {
-      case 'pending':
-        return 20
-      case 'confirmed':
-        return 30
+      case 'initiated':
+        return 25
       case 'waiting_to_send':
         return 40
       case 'sent_to_remote':
