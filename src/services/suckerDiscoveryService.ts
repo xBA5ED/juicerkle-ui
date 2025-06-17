@@ -1,6 +1,7 @@
-import { createPublicClient, http, type PublicClient, type Address } from 'viem'
+import { createPublicClient, http, type Address } from 'viem'
 import { JBSuckersPair, ProjectSuckerMapping, SuckerDiscoveryResult, SuckerPair } from '@/types/bridge'
-import { SUPPORTED_CHAINS } from '@/utils/chainUtils'
+import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
+import { bridgeDetectionService } from './bridgeDetectionService'
 
 // Registry address for JBSuckerRegistry
 const REGISTRY_ADDRESS = '0x696c7e9b37d28edbefa3fce06e26041b7197c1a5' as Address
@@ -37,42 +38,23 @@ const SUCKER_ABI = [
   }
 ] as const
 
-type SupportedChainId = keyof typeof SUPPORTED_CHAINS
+function createClient(chainId: number) {
+  const chain = SUPPORTED_CHAINS[chainId as SupportedChainId]
+  if (!chain) {
+    throw new Error(`Unsupported chain ID: ${chainId}`)
+  }
+
+  return createPublicClient({
+    chain,
+    transport: http()
+  })
+}
 
 export class SuckerDiscoveryService {
-  private clients: Map<number, PublicClient>
-  private registryAddresses: Map<number, Address>
-  
-  constructor() {
-    this.clients = new Map()
-    this.registryAddresses = new Map()
-    
-    // Initialize clients for supported chains
-    Object.entries(SUPPORTED_CHAINS).forEach(([chainId, chain]) => {
-      const client = createPublicClient({
-        chain,
-        transport: http()
-      })
-      this.clients.set(Number(chainId), client)
-    })
-    
-    // Set the registry address for all supported chains
-    this.getSupportedChainIds().forEach(chainId => {
-      this.setRegistryAddress(chainId, REGISTRY_ADDRESS)
-    })
-  }
-
-  setRegistryAddress(chainId: number, address: Address): void {
-    this.registryAddresses.set(chainId, address)
-  }
-
   async getProjectIdFromSucker(chainId: number, suckerAddress: Address): Promise<string> {
-    const client = this.clients.get(chainId)
-    if (!client) {
-      throw new Error(`No client configured for chain ${chainId}`)
-    }
-
     try {
+      const client = createClient(chainId)
+      
       const result = await client.readContract({
         address: suckerAddress,
         abi: SUCKER_ABI,
@@ -87,27 +69,18 @@ export class SuckerDiscoveryService {
   }
 
   async getSuckerPairsForProject(chainId: number, projectId: string): Promise<JBSuckersPair[]> {
-    const client = this.clients.get(chainId)
-    const registryAddress = this.registryAddresses.get(chainId)
-    
-    if (!client) {
-      throw new Error(`No client configured for chain ${chainId}`)
-    }
-    
-    if (!registryAddress) {
-      throw new Error(`No registry address configured for chain ${chainId}`)
-    }
-
     try {
+      const client = createClient(chainId)
+      
       const result = await client.readContract({
-        address: registryAddress,
+        address: REGISTRY_ADDRESS,
         abi: REGISTRY_ABI,
         functionName: 'suckerPairsOf',
         args: [BigInt(projectId)]
       })
       
       // Convert the result to our interface format
-      return result.map((pair: any) => ({
+      return result.map((pair: { local: string; remote: string; remoteChainId: bigint }) => ({
         local: pair.local as string,
         remote: pair.remote as string,
         remoteChainId: Number(pair.remoteChainId)
@@ -210,9 +183,62 @@ export class SuckerDiscoveryService {
       }
     }
 
+    // Now detect bridge implementations for all discovered pairs
+    console.log('Detecting bridge implementations for discovered pairs...')
+    await this.populateBridgeInfo(suckerPairs)
+
     return {
       projectMappings,
       suckerPairs
+    }
+  }
+
+  /**
+   * Populate bridge information for all sucker pairs sequentially
+   */
+  private async populateBridgeInfo(suckerPairs: Map<string, SuckerPair>): Promise<void> {
+    const allSuckers: Array<{ chainId: number; address: Address; pairId: string; side: 'chainA' | 'chainB' }> = []
+    
+    // Collect all unique suckers from all pairs
+    for (const [pairId, pair] of suckerPairs.entries()) {
+      allSuckers.push({
+        chainId: pair.chainA.chainId,
+        address: pair.chainA.address as Address,
+        pairId,
+        side: 'chainA'
+      })
+      allSuckers.push({
+        chainId: pair.chainB.chainId,
+        address: pair.chainB.address as Address,
+        pairId,
+        side: 'chainB'
+      })
+    }
+
+    // Detect bridge implementations sequentially
+    for (const sucker of allSuckers) {
+      try {
+        console.log(`Detecting bridge for sucker ${sucker.address} on chain ${sucker.chainId}`)
+        const bridgeInfo = await bridgeDetectionService.detectSuckerBridge(sucker.chainId, sucker.address)
+        
+        // Update the pair with bridge info
+        const pair = suckerPairs.get(sucker.pairId)
+        if (pair) {
+          pair[sucker.side].bridgeInfo = bridgeInfo
+        }
+      } catch (error) {
+        console.warn(`Failed to detect bridge for sucker ${sucker.address} on chain ${sucker.chainId}:`, error)
+        // Set unknown bridge info as fallback
+        const pair = suckerPairs.get(sucker.pairId)
+        if (pair) {
+          pair[sucker.side].bridgeInfo = {
+            suckerAddress: sucker.address.toLowerCase(),
+            chainId: sucker.chainId,
+            deployerAddress: 'unknown',
+            bridgeInfo: bridgeDetectionService.getBridgeInfo('unknown')
+          }
+        }
+      }
     }
   }
 

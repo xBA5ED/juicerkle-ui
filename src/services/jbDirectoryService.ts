@@ -1,5 +1,5 @@
 import { createPublicClient, http, type Address } from 'viem'
-import { JBAccountingContext, IJBTerminal } from '@/types/bridge'
+import { JBAccountingContext } from '@/types/bridge'
 import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
 
 const JB_DIRECTORY_ADDRESS: Address = '0x0bc9f153dee4d3d474ce0903775b9b2aaae9aa41'
@@ -68,7 +68,7 @@ class JBDirectoryService {
         args: [BigInt(projectId)]
       })
 
-      return terminals
+      return [...terminals]
     } catch (error) {
       console.error(`Failed to get terminals for project ${projectId} on chain ${chainId}:`, error)
       throw new Error(`Failed to get terminals for project`)

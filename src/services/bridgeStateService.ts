@@ -3,7 +3,7 @@ import { suckerService } from './suckerService'
 import { bridgeStorageService, type StoredBridgeTransaction } from './bridgeStorageService'
 import { juicemerkleApiService } from './juicemerkleApiService'
 import { jbTokensService } from './jbTokensService'
-import { type TransactionStatus } from '@/types/bridge'
+import { type TransactionStatus, type JBOutboxTree } from '@/types/bridge'
 
 export interface BridgeStateInfo {
   transactionId: string
@@ -16,7 +16,7 @@ export interface BridgeStateInfo {
 
 class BridgeStateService {
   // Cache for outbox trees to avoid duplicate RPC calls
-  private outboxCache = new Map<string, { data: any, timestamp: number }>()
+  private outboxCache = new Map<string, { data: JBOutboxTree, timestamp: number }>()
   private readonly CACHE_TTL = 30000 // 30 seconds
   
   // Track last backend check time to implement 60-second interval
@@ -194,7 +194,7 @@ class BridgeStateService {
         numberOfClaimsSent = outboxTree.numberOfClaimsSent
         
         // Determine new status based on index vs numberOfClaimsSent
-        if (outboxIndex < numberOfClaimsSent) {
+        if (outboxIndex < (numberOfClaimsSent ?? 0)) {
           // Our transaction has been sent to the remote chain
           currentStatus = 'sent_to_remote'
         }
@@ -320,7 +320,7 @@ class BridgeStateService {
               numberOfClaimsSent = outboxTree.numberOfClaimsSent
               
               // Determine new status based on index vs numberOfClaimsSent
-              if (outboxIndex < numberOfClaimsSent) {
+              if (outboxIndex < (numberOfClaimsSent ?? 0)) {
                 currentStatus = 'sent_to_remote'
               }
             }

@@ -246,7 +246,7 @@ class BridgeDetectionService {
     }
 
     /**
-     * Batch detect bridge implementations for multiple suckers
+     * Batch detect bridge implementations for multiple suckers (parallel)
      */
     async detectMultipleSuckerBridges(suckers: Array<{ chainId: number; address: Address }>): Promise<SuckerBridgeInfo[]> {
         const promises = suckers.map(({ chainId, address }) =>
@@ -254,6 +254,31 @@ class BridgeDetectionService {
         )
 
         return Promise.all(promises)
+    }
+
+    /**
+     * Sequential detect bridge implementations for multiple suckers (to avoid rate limiting)
+     */
+    async detectMultipleSuckerBridgesSequential(suckers: Array<{ chainId: number; address: Address }>): Promise<SuckerBridgeInfo[]> {
+        const results: SuckerBridgeInfo[] = []
+        
+        for (const { chainId, address } of suckers) {
+            try {
+                const bridgeInfo = await this.detectSuckerBridge(chainId, address)
+                results.push(bridgeInfo)
+            } catch (error) {
+                console.error(`Failed to detect bridge for sucker ${address} on chain ${chainId}:`, error)
+                // Add fallback result
+                results.push({
+                    suckerAddress: address.toLowerCase(),
+                    chainId,
+                    deployerAddress: 'unknown',
+                    bridgeInfo: this.getBridgeInfo('unknown')
+                })
+            }
+        }
+        
+        return results
     }
 
     /**

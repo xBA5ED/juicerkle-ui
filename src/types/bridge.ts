@@ -46,13 +46,13 @@ export interface SuckerPair {
     chainId: number
     address: string
     projectId: string
-    bridgeInfo?: SuckerBridgeInfo // Optional bridge detection info
+    bridgeInfo?: SuckerBridgeInfo // Optional bridge detection info (populated after discovery)
   }
   chainB: {
     chainId: number
     address: string
     projectId: string
-    bridgeInfo?: SuckerBridgeInfo // Optional bridge detection info
+    bridgeInfo?: SuckerBridgeInfo // Optional bridge detection info (populated after discovery)
   }
 }
 

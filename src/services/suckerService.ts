@@ -1,6 +1,6 @@
-import { createPublicClient, http, type Address, parseUnits, type Hash } from 'viem'
+import { createPublicClient, http, type Address, parseUnits, type Hash, decodeEventLog } from 'viem'
 import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
-import { type JBOutboxTree, type JBClaim, type JBLeaf } from '@/types/bridge'
+import { type JBOutboxTree, type JBClaim } from '@/types/bridge'
 
 const SUCKER_ABI = [
   {
@@ -170,7 +170,7 @@ class SuckerService {
         nonce: Number(result.nonce),
         balance: result.balance.toString(),
         tree: {
-          branch: result.tree.branch,
+          branch: [...result.tree.branch],
           count: Number(result.tree.count)
         },
         numberOfClaimsSent: Number(result.numberOfClaimsSent)
@@ -231,7 +231,7 @@ class SuckerService {
     const minTokensReclaimedBigInt = parseUnits(params.minTokensReclaimed, decimals)
 
     return {
-      address: undefined as any, // Will be set by caller
+      address: '0x0000000000000000000000000000000000000000' as Address, // Will be set by caller
       abi: SUCKER_ABI,
       functionName: 'prepare' as const,
       args: [
@@ -239,17 +239,17 @@ class SuckerService {
         params.beneficiary,
         minTokensReclaimedBigInt,
         params.token
-      ]
+      ] as const
     }
   }
 
   getToRemoteFunctionData(tokenAddress: Address, requiresPayment: boolean = true) {
     return {
-      address: undefined as any, // Will be set by caller
+      address: '0x0000000000000000000000000000000000000000' as Address, // Will be set by caller
       abi: SUCKER_ABI,
       functionName: 'toRemote' as const,
-      args: [tokenAddress],
-      value: requiresPayment ? parseUnits('0.05', 18) : 0n // Only send ETH if payment is required
+      args: [tokenAddress] as const,
+      value: requiresPayment ? parseUnits('0.05', 18) : BigInt(0) // Only send ETH if payment is required
     }
   }
 
@@ -261,40 +261,47 @@ class SuckerService {
     console.log('Preparing claim with data:', claimData)
     
     // Convert proof from array of byte arrays to array of hex strings
-    const convertedProof = claimData.Proof.map((byteArray: any) => {
+    const convertedProof = claimData.Proof.map((byteArray: string | number[]) => {
       if (Array.isArray(byteArray)) {
         // Convert array of bytes to hex string
         const hexString = '0x' + byteArray.map((byte: number) => 
           byte.toString(16).padStart(2, '0')
         ).join('')
         console.log('Converted byte array to hex:', byteArray.slice(0, 4), '...', '→', hexString.slice(0, 10) + '...')
-        return hexString
+        return hexString as `0x${string}`
       } else if (typeof byteArray === 'string') {
         // Already a hex string, ensure it has 0x prefix
-        return byteArray.startsWith('0x') ? byteArray : `0x${byteArray}`
+        return (byteArray.startsWith('0x') ? byteArray : `0x${byteArray}`) as `0x${string}`
       } else {
         console.warn('Unexpected proof element type:', typeof byteArray, byteArray)
-        return '0x0000000000000000000000000000000000000000000000000000000000000000'
+        return '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`
       }
     })
     
-    console.log('Converted proof length:', convertedProof.length)
-    console.log('First converted proof element:', convertedProof[0])
+    // Ensure we have at least 32 elements for the proof array
+    const paddedProof = [...convertedProof]
+    while (paddedProof.length < 32) {
+      paddedProof.push('0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`)
+    }
+    const fixedProof = paddedProof.slice(0, 32) as unknown as readonly [`0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`]
+    
+    console.log('Converted proof length:', fixedProof.length)
+    console.log('First converted proof element:', fixedProof[0])
     
     return {
-      address: undefined as any, // Will be set by caller
+      address: '0x0000000000000000000000000000000000000000' as Address, // Will be set by caller
       abi: SUCKER_ABI,
       functionName: 'claim' as const,
       args: [{
-        token: claimData.Token,
+        token: claimData.Token as `0x${string}`,
         leaf: {
-          index: claimData.Leaf.Index,
-          beneficiary: claimData.Leaf.Beneficiary,
-          projectTokenCount: claimData.Leaf.ProjectTokenCount,
-          terminalTokenAmount: claimData.Leaf.TerminalTokenAmount
+          index: BigInt(claimData.Leaf.Index),
+          beneficiary: claimData.Leaf.Beneficiary as `0x${string}`,
+          projectTokenCount: BigInt(claimData.Leaf.ProjectTokenCount),
+          terminalTokenAmount: BigInt(claimData.Leaf.TerminalTokenAmount)
         },
-        proof: convertedProof
-      }]
+        proof: fixedProof
+      }] as const
     }
   }
 
@@ -324,7 +331,7 @@ class SuckerService {
       const claimLogs = receipt.logs.filter(log => {
         try {
           // Try to decode as Claim event
-          const decoded = client.decodeEventLog({
+          const decoded = decodeEventLog({
             abi: CLAIM_EVENT_ABI,
             data: log.data,
             topics: log.topics,
@@ -341,7 +348,7 @@ class SuckerService {
       
       // Process the first claim event
       const claimLog = claimLogs[0]
-      const decoded = client.decodeEventLog({
+      const decoded = decodeEventLog({
         abi: CLAIM_EVENT_ABI,
         data: claimLog.data,
         topics: claimLog.topics,

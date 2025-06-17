@@ -42,8 +42,8 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
     const [terminalToken, setTerminalToken] = useState<Address | null>(null)
     
     // Token state
-    const [tokenBalance, setTokenBalance] = useState<bigint>(0n)
-    const [tokenAllowance, setTokenAllowance] = useState<bigint>(0n)
+    const [tokenBalance, setTokenBalance] = useState<bigint>(BigInt(0))
+    const [tokenAllowance, setTokenAllowance] = useState<bigint>(BigInt(0))
     const [tokenDecimals, setTokenDecimals] = useState<number>(18)
     const [balanceLoaded, setBalanceLoaded] = useState(false)
     
@@ -236,6 +236,7 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
 
             setProjectId(foundProjectId)
 
+            console.log('Discovering suckers and detecting bridge types...')
             const discoveryResult = await suckerDiscoveryService.discoverAllSuckers(chainId, foundProjectId)
             const relevantPairs = Array.from(discoveryResult.suckerPairs.values()).filter(pair =>
                 pair.chainA.chainId === chainId || pair.chainB.chainId === chainId
@@ -243,6 +244,17 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
 
             if (relevantPairs.length === 0) {
                 setError('No bridge options found for this token')
+                return
+            }
+
+            // Check if any CCIP bridges are available
+            const ccipPairs = relevantPairs.filter(pair => {
+                const sourceChain = pair.chainA.chainId === chainId ? pair.chainA : pair.chainB
+                return sourceChain.bridgeInfo?.bridgeInfo.type === 'CCIP'
+            })
+
+            if (ccipPairs.length === 0) {
+                setError('No CCIP bridges available for this token. Only CCIP bridges are currently supported.')
                 return
             }
 
@@ -353,8 +365,7 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
                 address: suckerInfo.address as Address,
                 abi: contractData.abi,
                 functionName: contractData.functionName,
-                args: contractData.args,
-                value: contractData.value
+                args: contractData.args
             })
         } catch (err) {
             console.error('Failed to initiate bridge:', err)
@@ -447,7 +458,7 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
                                 {loading ? (
                                     <>
                                         <Loader className="w-4 h-4 animate-spin" />
-                                        Searching...
+                                        Detecting bridge types...
                                     </>
                                 ) : (
                                     'Find Bridge Options'
@@ -479,12 +490,22 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
                             const destination = getDestinationChain(pair)
                             const destinationName = getChainName(destination.chainId)
                             
+                            // Get bridge info for the source chain sucker
+                            const sourceChain = pair.chainA.chainId === chainId ? pair.chainA : pair.chainB
+                            const bridgeInfo = sourceChain.bridgeInfo
+                            const isCCIP = bridgeInfo?.bridgeInfo.type === 'CCIP'
+                            const bridgeDisplayName = bridgeInfo?.bridgeInfo.displayName || 'Unknown Bridge'
+                            
                             return (
                                 <button
                                     key={pair.id}
                                     onClick={() => handlePairSelection(pair)}
-                                    disabled={loading}
-                                    className="w-full p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left disabled:opacity-50"
+                                    disabled={loading || !isCCIP}
+                                    className={`w-full p-4 border rounded-lg transition-colors text-left ${
+                                        isCCIP 
+                                            ? 'border-gray-200 dark:border-gray-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20' 
+                                            : 'border-gray-300 dark:border-gray-500 bg-gray-50 dark:bg-gray-800 opacity-60 cursor-not-allowed'
+                                    }`}
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
@@ -504,11 +525,19 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
                                                     Bridge to {destinationName}
                                                 </div>
                                                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                    Fast & secure cross-chain transfer
+                                                    {bridgeDisplayName}
+                                                    {!isCCIP && ' (Not supported)'}
                                                 </div>
                                             </div>
                                         </div>
-                                        <ArrowRight className="w-4 h-4 text-gray-400" />
+                                        <div className="flex items-center gap-2">
+                                            {!isCCIP && (
+                                                <span className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
+                                                    Disabled
+                                                </span>
+                                            )}
+                                            <ArrowRight className="w-4 h-4 text-gray-400" />
+                                        </div>
                                     </div>
                                 </button>
                             )

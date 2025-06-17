@@ -8,7 +8,7 @@ export interface ClaimsRequest {
 }
 
 export interface JBLeaf {
-  Index: number 
+  Index: string // Changed from number to string to match bridge types
   Beneficiary: string
   ProjectTokenCount: string
   TerminalTokenAmount: string

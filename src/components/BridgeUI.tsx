@@ -6,7 +6,6 @@ import { BridgeTransactionList } from './BridgeTransactionList'
 import { NewBridgeForm } from './NewBridgeForm'
 import { ConnectButton } from './ConnectButton'
 import { PlusIcon } from './Icons'
-import { suckerDiscoveryService } from '@/services/suckerDiscoveryService'
 import { bridgeStateService } from '@/services/bridgeStateService'
 import { bridgeStorageService } from '@/services/bridgeStorageService'
 
@@ -16,7 +15,7 @@ export function BridgeUI() {
 
     // Add debug functions to global window for testing
     useEffect(() => {
-        // @ts-ignore
+        // @ts-expect-error - Adding debug functions to window for development
         window.debugBridge = {
             forceBackendCheck: () => bridgeStateService.forceBackendCheck(),
             getAllTransactions: () => bridgeStorageService.getAllTransactions(),
@@ -28,20 +27,20 @@ export function BridgeUI() {
                     projectId: '1',
                     sourceChainId: 1,
                     targetChainId: 10,
-                    suckerAddress: '0x0000000000000000000000000000000000000001' as any,
-                    beneficiary: '0x0000000000000000000000000000000000000002' as any,
-                    token: '0x0000000000000000000000000000000000000003' as any,
+                    suckerAddress: '0x0000000000000000000000000000000000000001' as `0x${string}`,
+                    beneficiary: '0x0000000000000000000000000000000000000002' as `0x${string}`,
+                    token: '0x0000000000000000000000000000000000000003' as `0x${string}`,
                     projectTokenCount: '1000000000000000000',
                     terminalTokenAmount: '1000000000000000000',
                     minTokensReclaimed: '0',
                     hashed: '0xhash',
                     index: '0',
                     root: '0xroot',
-                    caller: '0x0000000000000000000000000000000000000004' as any,
+                    caller: '0x0000000000000000000000000000000000000004' as `0x${string}`,
                     claimProof: null,
                     claimLeaf: null,
                     timestamp: Date.now(),
-                    status: 'sent_to_remote' as any
+                    status: 'sent_to_remote' as const
                 }
                 bridgeStorageService.storeBridgeTransaction(testTx)
                 console.log('Created test transaction:', testTx)

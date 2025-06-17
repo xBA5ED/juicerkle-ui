@@ -69,7 +69,7 @@ class TokenService {
       return balance
     } catch (error) {
       console.error(`Failed to get token balance for ${tokenAddress}:`, error)
-      return 0n
+      return BigInt(0)
     }
   }
 
@@ -92,7 +92,7 @@ class TokenService {
       return allowance
     } catch (error) {
       console.error(`Failed to get token allowance for ${tokenAddress}:`, error)
-      return 0n
+      return BigInt(0)
     }
   }
 

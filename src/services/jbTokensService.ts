@@ -1,4 +1,4 @@
-import { createPublicClient, http, type PublicClient, type Address } from 'viem'
+import { createPublicClient, http, type Address } from 'viem'
 import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
 
 // JBTokens contract address (same on all chains)
@@ -15,29 +15,23 @@ const JB_TOKENS_ABI = [
   }
 ] as const
 
-export class JBTokensService {
-  private clients: Map<number, PublicClient>
-  
-  constructor() {
-    this.clients = new Map()
-    
-    // Initialize clients for supported chains
-    Object.entries(SUPPORTED_CHAINS).forEach(([chainId, chain]) => {
-      const client = createPublicClient({
-        chain,
-        transport: http()
-      })
-      this.clients.set(Number(chainId), client)
-    })
+function createClient(chainId: number) {
+  const chain = SUPPORTED_CHAINS[chainId as SupportedChainId]
+  if (!chain) {
+    throw new Error(`Unsupported chain ID: ${chainId}`)
   }
 
-  async getProjectIdForToken(chainId: number, tokenAddress: Address): Promise<string | null> {
-    const client = this.clients.get(chainId)
-    if (!client) {
-      throw new Error(`No client configured for chain ${chainId}`)
-    }
+  return createPublicClient({
+    chain,
+    transport: http()
+  })
+}
 
+export class JBTokensService {
+  async getProjectIdForToken(chainId: number, tokenAddress: Address): Promise<string | null> {
     try {
+      const client = createClient(chainId)
+      
       const result = await client.readContract({
         address: JB_TOKENS_ADDRESS,
         abi: JB_TOKENS_ABI,

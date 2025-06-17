@@ -45,17 +45,16 @@ export function BridgeToRemoteButton({
   }, [sourceChainId, suckerAddress, targetChainId])
   
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({
-    hash,
-    onSuccess: () => {
+    hash
+  })
+
+  useEffect(() => {
+    if (isConfirming === false && hash) {
       console.log('Bridge to remote transaction confirmed')
       setIsProcessing(false)
       // The existing state monitoring should automatically update the transaction statuses
-    },
-    onError: (error) => {
-      console.error('Bridge to remote transaction failed:', error)
-      setIsProcessing(false)
     }
-  })
+  }, [isConfirming, hash])
 
   const handleBridgeToRemote = async () => {
     try {
