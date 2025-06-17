@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi'
 import { type StoredBridgeTransaction } from '@/services/bridgeStorageService'
 import { suckerService } from '@/services/suckerService'
 import { bridgeStorageService } from '@/services/bridgeStorageService'
@@ -15,6 +15,7 @@ interface ClaimButtonProps {
 export function ClaimButton({ transaction, onSuccess }: ClaimButtonProps) {
   const { address, chainId } = useAccount()
   const { writeContract, data: hash, error, isPending } = useWriteContract()
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash,
   })
@@ -25,7 +26,24 @@ export function ClaimButton({ transaction, onSuccess }: ClaimButtonProps) {
   const isOnCorrectChain = chainId === transaction.targetChainId
   const isCorrectBeneficiary = address?.toLowerCase() === transaction.beneficiary.toLowerCase()
   const isReadyToClaim = transaction.status === 'ready_to_claim' && transaction.claimProof && transaction.claimLeaf
-  const canClaim = isOnCorrectChain && isCorrectBeneficiary && isReadyToClaim && !claiming && !isPending && !isConfirming && !waitingForEvent
+  
+  // Button is enabled if: ready to claim AND correct beneficiary AND (on correct chain OR can switch chains)
+  const canInteract = isCorrectBeneficiary && isReadyToClaim && !claiming && !isPending && !isConfirming && !waitingForEvent && !isSwitchingChain
+
+  const handleButtonClick = async () => {
+    // If not on correct chain, switch chains first
+    if (!isOnCorrectChain) {
+      try {
+        await switchChain({ chainId: transaction.targetChainId })
+      } catch (error) {
+        console.error('Failed to switch chain:', error)
+      }
+      return
+    }
+
+    // Otherwise, proceed with claim
+    await handleClaim()
+  }
 
   const handleClaim = async () => {
     if (!isReadyToClaim || !transaction.claimProof || !transaction.claimLeaf) {
@@ -124,7 +142,7 @@ export function ClaimButton({ transaction, onSuccess }: ClaimButtonProps) {
   }
 
   const getButtonColor = () => {
-    if (!canClaim) {
+    if (!canInteract) {
       return 'bg-gray-400 cursor-not-allowed'
     }
     if (isConfirmed) {
@@ -136,8 +154,8 @@ export function ClaimButton({ transaction, onSuccess }: ClaimButtonProps) {
   return (
     <div className="space-y-2">
       <button
-        onClick={handleClaim}
-        disabled={!canClaim}
+        onClick={handleButtonClick}
+        disabled={!canInteract}
         className={`w-full px-4 py-2 text-white rounded-md transition-colors ${getButtonColor()}`}
       >
         {getButtonText()}
@@ -146,12 +164,6 @@ export function ClaimButton({ transaction, onSuccess }: ClaimButtonProps) {
       {error && (
         <p className="text-sm text-red-600">
           Error: {error.message}
-        </p>
-      )}
-
-      {!isOnCorrectChain && (
-        <p className="text-sm text-orange-600">
-          Switch to {getChainName(transaction.targetChainId)} to claim this transaction
         </p>
       )}
 

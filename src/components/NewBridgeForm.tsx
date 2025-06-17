@@ -604,21 +604,6 @@ export function NewBridgeForm({ onSuccess, onCancel }: NewBridgeFormProps) {
                         />
                     </div>
 
-                    {/* Debug Info - Remove in production */}
-                    {process.env.NODE_ENV === 'development' && (
-                        <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs">
-                            <div>Approval Step: {approvalStep}</div>
-                            <div>Amount: {amount}</div>
-                            <div>Balance: {tokenBalance.toString()}</div>
-                            <div>Allowance: {tokenAllowance.toString()}</div>
-                            <div>Decimals: {tokenDecimals}</div>
-                            <div>Balance Loaded: {balanceLoaded.toString()}</div>
-                            {amount && (
-                                <div>Required Amount: {parseUnits(amount, tokenDecimals).toString()}</div>
-                            )}
-                        </div>
-                    )}
-
                     {/* Approval Section */}
                     {approvalStep === 'needed' && (
                         <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">

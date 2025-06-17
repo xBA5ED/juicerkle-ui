@@ -26,6 +26,8 @@ const DEPLOYER_TO_BRIDGE_TYPE: Record<string, BridgeType> = {
     '0x34b40205b249e5733cf93d86b7c9783b015dd3e7': 'CCIP',
     '0xde901ebafc70d545f9d43034308c136ce8c94a5c': 'CCIP',
     '0x9d4858cc9d3552507eeabce722787afef64c615e': 'CCIP',
+    '0x39132ea75b9eae5cbff7ba1997c804302a7ff413': 'CCIP',
+    '0xb825f2f6995966eb6dd772a8707d4a547028ac26': 'CCIP'
 }
 
 // Bridge configuration and characteristics with directional support
@@ -261,7 +263,7 @@ class BridgeDetectionService {
      */
     async detectMultipleSuckerBridgesSequential(suckers: Array<{ chainId: number; address: Address }>): Promise<SuckerBridgeInfo[]> {
         const results: SuckerBridgeInfo[] = []
-        
+
         for (const { chainId, address } of suckers) {
             try {
                 const bridgeInfo = await this.detectSuckerBridge(chainId, address)
@@ -277,7 +279,7 @@ class BridgeDetectionService {
                 })
             }
         }
-        
+
         return results
     }
 
