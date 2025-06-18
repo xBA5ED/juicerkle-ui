@@ -132,24 +132,25 @@ class BridgeStateService {
                 terminalTokenAmount: claim.Leaf.TerminalTokenAmount,
                 token: claim.Token
               })
-              
-              // Try to get project ID for this token
-              try {
-                const projectId = await jbTokensService.getProjectIdForToken(request.chainId, claim.Token as Address)
-                if (projectId) {
-                  const newTransaction = bridgeStorageService.createTransactionFromClaimData(
-                    claim,
-                    request.chainId,
-                    request.sucker,
-                    projectId
-                  )
-                  console.log(`Created new transaction ${newTransaction.id} from unknown backend claim`)
-                } else {
-                  console.log(`Skipping unknown claim - could not find project ID for token ${claim.Token}`)
-                }
-              } catch (error) {
-                console.error(`Failed to get project ID for unknown claim token ${claim.Token}:`, error)
-              }
+                
+              // Ignore the below, the token here is not the project token, its the backing asset. To get the projectId we should query the sucker. 
+              // // Try to get project ID for this token
+              // try {
+              //   const projectId = await jbTokensService.getProjectIdForToken(request.chainId, claim.Token as Address)
+              //   if (projectId) {
+              //     const newTransaction = bridgeStorageService.createTransactionFromClaimData(
+              //       claim,
+              //       request.chainId,
+              //       request.sucker,
+              //       projectId
+              //     )
+              //     console.log(`Created new transaction ${newTransaction.id} from unknown backend claim`)
+              //   } else {
+              //     console.log(`Skipping unknown claim - could not find project ID for token ${claim.Token}`)
+              //   }
+              // } catch (error) {
+              //   console.error(`Failed to get project ID for unknown claim token ${claim.Token}:`, error)
+              // }
             }
           }
           
