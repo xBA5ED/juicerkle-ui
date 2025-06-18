@@ -25,7 +25,7 @@ export interface ClaimsResponse {
 }
 
 class JuicemerkleApiService {
-  private readonly baseUrl: string = 'http://localhost:8080'
+  private readonly baseUrl: string = process.env.JUICERKLE_API_URL || 'http://localhost:8080'
 
   async getClaims(request: ClaimsRequest): Promise<JBClaim[]> {
     try {
