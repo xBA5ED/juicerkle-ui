@@ -249,7 +249,7 @@ class SuckerService {
       abi: SUCKER_ABI,
       functionName: 'toRemote' as const,
       args: [tokenAddress] as const,
-      value: requiresPayment ? parseUnits('0.05', 18) : BigInt(0) // Only send ETH if payment is required
+      value: requiresPayment ? parseUnits('0.01', 18) : BigInt(0) // Only send ETH if payment is required
     }
   }
 
