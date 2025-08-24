@@ -2,7 +2,6 @@ import { type Address } from 'viem'
 import { suckerService } from './suckerService'
 import { bridgeStorageService, type StoredBridgeTransaction } from './bridgeStorageService'
 import { juicemerkleApiService } from './juicemerkleApiService'
-import { jbTokensService } from './jbTokensService'
 import { type TransactionStatus, type JBOutboxTree } from '@/types/bridge'
 
 export interface BridgeStateInfo {
