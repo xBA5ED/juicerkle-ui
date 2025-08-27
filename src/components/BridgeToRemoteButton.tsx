@@ -87,7 +87,7 @@ export function BridgeToRemoteButton({
           </span>
         </div>
         <div className="text-xs text-blue-700 dark:text-blue-300">
-          {requiresPayment ? '~0.05 ETH + gas' : 'Gas only'}
+          {requiresPayment ? '~0.01 ETH + gas' : 'Gas only' /** TODO: Change the hardcoded gas value to be the actual cost **/ }
         </div>
       </div>
       

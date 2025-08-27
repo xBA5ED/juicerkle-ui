@@ -38,7 +38,7 @@ export function Providers({ children }: { children: ReactNode }) {
         // Mainnets
         [mainnet.id]: http(),
         [optimism.id]: http(),
-        [base.id]: http(),
+        [base.id]: http('https://base.llamarpc.com'),
         [arbitrum.id]: http(),
         // Testnets
         [sepolia.id]: http(),

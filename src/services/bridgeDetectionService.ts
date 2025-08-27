@@ -15,6 +15,14 @@ const DEPLOYER_ABI = [
 
 // Known deployer addresses mapped to bridge types
 const DEPLOYER_TO_BRIDGE_TYPE: Record<string, BridgeType> = {
+    // CCIP deployer addresses
+    '0x39132ea75b9eae5cbff7ba1997c804302a7ff413': 'CCIP',
+    '0xb825F2f6995966eB6dD772a8707D4A547028Ac26': 'CCIP',
+    '0x3D7Fb0aa325aD5D2349274f9eF33D4424135d963': 'CCIP',
+    '0x34b40205b249e5733cf93d86b7c9783b015dd3e7': 'CCIP',
+    '0xdE901EbaFC70d545F9D43034308C136Ce8c94A5C': 'CCIP',
+    '0x9d4858cc9d3552507eeabce722787afef64c615e': 'CCIP',
+
     // ArbitrumCanonical deployer addresses
     '0x5021c398d556925315c73a8f559d98117723967a': 'ArbitrumCanonical',
 
@@ -22,12 +30,6 @@ const DEPLOYER_TO_BRIDGE_TYPE: Record<string, BridgeType> = {
     '0x8ca8816d6740fe474be2399f5fd7996e79e055a0': 'OptimismCanonical', // BASE
     '0x5de5ea969fe0f4e2ee9efc50591857fd83ed7095': 'OptimismCanonical', // OP
 
-    // CCIP deployer addresses
-    '0x34b40205b249e5733cf93d86b7c9783b015dd3e7': 'CCIP',
-    '0xde901ebafc70d545f9d43034308c136ce8c94a5c': 'CCIP',
-    '0x9d4858cc9d3552507eeabce722787afef64c615e': 'CCIP',
-    '0x39132ea75b9eae5cbff7ba1997c804302a7ff413': 'CCIP',
-    '0xb825f2f6995966eb6dd772a8707d4a547028ac26': 'CCIP'
 }
 
 // Bridge configuration and characteristics with directional support
