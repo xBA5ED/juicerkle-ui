@@ -1,6 +1,6 @@
-import { createPublicClient, http, type Address } from 'viem'
+import { type Address } from 'viem'
 import { JBSuckersPair, ProjectSuckerMapping, SuckerDiscoveryResult, SuckerPair } from '@/types/bridge'
-import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
+import { getSharedPublicClient } from '@/utils/clientUtils'
 import { bridgeDetectionService } from './bridgeDetectionService'
 
 // Registry address for JBSuckerRegistry
@@ -38,22 +38,10 @@ const SUCKER_ABI = [
   }
 ] as const
 
-function createClient(chainId: number) {
-  const chain = SUPPORTED_CHAINS[chainId as SupportedChainId]
-  if (!chain) {
-    throw new Error(`Unsupported chain ID: ${chainId}`)
-  }
-
-  return createPublicClient({
-    chain,
-    transport: http()
-  })
-}
-
 export class SuckerDiscoveryService {
   async getProjectIdFromSucker(chainId: number, suckerAddress: Address): Promise<string> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       const result = await client.readContract({
         address: suckerAddress,
@@ -70,7 +58,7 @@ export class SuckerDiscoveryService {
 
   async getSuckerPairsForProject(chainId: number, projectId: string): Promise<JBSuckersPair[]> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       const result = await client.readContract({
         address: REGISTRY_ADDRESS,

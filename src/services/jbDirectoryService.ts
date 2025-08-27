@@ -1,6 +1,6 @@
-import { createPublicClient, http, type Address } from 'viem'
+import { type Address } from 'viem'
 import { JBAccountingContext } from '@/types/bridge'
-import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
+import { getSharedPublicClient } from '@/utils/clientUtils'
 
 const JB_DIRECTORY_ADDRESS: Address = '0x0bc9f153dee4d3d474ce0903775b9b2aaae9aa41'
 
@@ -44,22 +44,10 @@ const JB_SUCKER_ABI = [
   }
 ] as const
 
-function createClient(chainId: number) {
-  const chain = SUPPORTED_CHAINS[chainId as SupportedChainId]
-  if (!chain) {
-    throw new Error(`Unsupported chain ID: ${chainId}`)
-  }
-
-  return createPublicClient({
-    chain,
-    transport: http()
-  })
-}
-
 class JBDirectoryService {
   async getTerminalsForProject(chainId: number, projectId: string): Promise<Address[]> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       const terminals = await client.readContract({
         address: JB_DIRECTORY_ADDRESS,
@@ -81,7 +69,7 @@ class JBDirectoryService {
     projectId: string
   ): Promise<JBAccountingContext[]> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       const contexts = await client.readContract({
         address: terminalAddress,
@@ -103,7 +91,7 @@ class JBDirectoryService {
 
   async isTokenMappedOnSucker(chainId: number, suckerAddress: Address, tokenAddress: Address): Promise<boolean> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       const isMapped = await client.readContract({
         address: suckerAddress,

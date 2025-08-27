@@ -1,5 +1,5 @@
-import { createPublicClient, http, type Address } from 'viem'
-import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
+import { type Address } from 'viem'
+import { getSharedPublicClient } from '@/utils/clientUtils'
 
 // JBTokens contract address (same on all chains)
 const JB_TOKENS_ADDRESS = '0xa59e9f424901fb9dbd8913a9a32a081f9425bf36' as Address
@@ -15,22 +15,10 @@ const JB_TOKENS_ABI = [
   }
 ] as const
 
-function createClient(chainId: number) {
-  const chain = SUPPORTED_CHAINS[chainId as SupportedChainId]
-  if (!chain) {
-    throw new Error(`Unsupported chain ID: ${chainId}`)
-  }
-
-  return createPublicClient({
-    chain,
-    transport: http()
-  })
-}
-
 export class JBTokensService {
   async getProjectIdForToken(chainId: number, tokenAddress: Address): Promise<string | null> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       const result = await client.readContract({
         address: JB_TOKENS_ADDRESS,

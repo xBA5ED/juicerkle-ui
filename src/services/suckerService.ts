@@ -1,5 +1,5 @@
-import { createPublicClient, http, type Address, parseUnits, type Hash, decodeEventLog } from 'viem'
-import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
+import { type Address, parseUnits, type Hash, decodeEventLog } from 'viem'
+import { getSharedPublicClient } from '@/utils/clientUtils'
 import { type JBOutboxTree, type JBClaim } from '@/types/bridge'
 
 const SUCKER_ABI = [
@@ -138,18 +138,6 @@ export interface ClaimEvent {
   caller: Address
 }
 
-function createClient(chainId: number) {
-  const chain = SUPPORTED_CHAINS[chainId as SupportedChainId]
-  if (!chain) {
-    throw new Error(`Unsupported chain ID: ${chainId}`)
-  }
-
-  return createPublicClient({
-    chain,
-    transport: http()
-  })
-}
-
 class SuckerService {
   async getOutboxTree(
     chainId: number,
@@ -157,7 +145,7 @@ class SuckerService {
     tokenAddress: Address
   ): Promise<JBOutboxTree> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       const result = await client.readContract({
         address: suckerAddress,

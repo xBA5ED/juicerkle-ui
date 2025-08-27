@@ -1,5 +1,5 @@
-import { createPublicClient, http, type Address, parseUnits, formatUnits } from 'viem'
-import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
+import { type Address, parseUnits, formatUnits } from 'viem'
+import { getSharedPublicClient } from '@/utils/clientUtils'
 
 const ERC20_ABI = [
   {
@@ -38,18 +38,6 @@ const ERC20_ABI = [
   }
 ] as const
 
-function createClient(chainId: number) {
-  const chain = SUPPORTED_CHAINS[chainId as SupportedChainId]
-  if (!chain) {
-    throw new Error(`Unsupported chain ID: ${chainId}`)
-  }
-
-  return createPublicClient({
-    chain,
-    transport: http()
-  })
-}
-
 class TokenService {
   async getTokenBalance(
     chainId: number,
@@ -57,7 +45,7 @@ class TokenService {
     userAddress: Address
   ): Promise<bigint> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       const balance = await client.readContract({
         address: tokenAddress,
@@ -80,7 +68,7 @@ class TokenService {
     spenderAddress: Address
   ): Promise<bigint> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       const allowance = await client.readContract({
         address: tokenAddress,
@@ -98,7 +86,7 @@ class TokenService {
 
   async getTokenDecimals(chainId: number, tokenAddress: Address): Promise<number> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       const decimals = await client.readContract({
         address: tokenAddress,

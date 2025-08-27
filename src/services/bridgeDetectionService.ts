@@ -1,5 +1,5 @@
-import { createPublicClient, http, type Address } from 'viem'
-import { SUPPORTED_CHAINS, type SupportedChainId } from '@/utils/chainUtils'
+import { type Address } from 'viem'
+import { getSharedPublicClient } from '@/utils/clientUtils'
 import { type BridgeType, type BridgeInfo, type SuckerBridgeInfo, type BridgeDirectionConfig } from '@/types/bridge'
 
 // ABI for checking if a sucker was deployed by a specific deployer
@@ -116,18 +116,6 @@ const BRIDGE_CONFIGS: Record<BridgeType, BridgeInfo> = {
     }
 }
 
-function createClient(chainId: number) {
-    const chain = SUPPORTED_CHAINS[chainId as SupportedChainId]
-    if (!chain) {
-        throw new Error(`Unsupported chain ID: ${chainId}`)
-    }
-
-    return createPublicClient({
-        chain,
-        transport: http()
-    })
-}
-
 class BridgeDetectionService {
     // Cache for bridge detection results
     private bridgeCache = new Map<string, SuckerBridgeInfo>()
@@ -136,7 +124,7 @@ class BridgeDetectionService {
      * Get the bridge type for a given sucker by checking each deployer's isSucker mapping
      */
     private async getSuckerBridgeType(chainId: number, suckerAddress: Address): Promise<BridgeType> {
-        const client = createClient(chainId)
+        const client = getSharedPublicClient(chainId)
 
         // Check each known deployer to see if it deployed this sucker
         for (const [deployerAddress, bridgeType] of Object.entries(DEPLOYER_TO_BRIDGE_TYPE)) {
