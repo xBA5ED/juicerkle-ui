@@ -229,16 +229,6 @@ export class SuckerDiscoveryService {
       }
     }
   }
-
-  // Helper method to check if a chain is supported
-  isSupportedChain(chainId: number): chainId is SupportedChainId {
-    return chainId in SUPPORTED_CHAINS
-  }
-
-  // Get all supported chain IDs
-  getSupportedChainIds(): number[] {
-    return Object.keys(SUPPORTED_CHAINS).map(Number)
-  }
 }
 
 // Export a singleton instance

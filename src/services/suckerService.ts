@@ -176,7 +176,7 @@ class SuckerService {
     onEvent: (event: InsertToOutboxTreeEvent) => void
   ): Promise<void> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       // Get the transaction receipt to find the block number
       const receipt = await client.waitForTransactionReceipt({
@@ -303,7 +303,7 @@ class SuckerService {
     onEvent: (event: ClaimEvent) => void
   ): Promise<void> {
     try {
-      const client = createClient(chainId)
+      const client = getSharedPublicClient(chainId)
       
       console.log('Waiting for claim transaction to be confirmed...', transactionHash)
       

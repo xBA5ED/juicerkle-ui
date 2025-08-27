@@ -11,7 +11,7 @@ import {
 } from 'viem/chains'
 
 // Supported chains for sucker discovery (mainnets + testnets)
-export const SUPPORTED_CHAINS = {
+export const SUPPORTED_CHAINS: Record<number, Chain> = {
   // Mainnets
   1: mainnet,
   10: optimism,
@@ -24,11 +24,9 @@ export const SUPPORTED_CHAINS = {
   421614: arbitrumSepolia,
 } as const
 
-export type SupportedChainId = keyof typeof SUPPORTED_CHAINS
-
 export function getChainName(chainId: number, chains?: Chain[]): string {
   // First try to find in supported chains
-  const supportedChain = SUPPORTED_CHAINS[chainId as SupportedChainId]
+  const supportedChain = SUPPORTED_CHAINS[chainId]
   if (supportedChain) {
     return supportedChain.name
   }
@@ -66,16 +64,4 @@ export function formatStatus(status: string): string {
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
-}
-
-export function isSupportedChain(chainId: number): chainId is SupportedChainId {
-  return chainId in SUPPORTED_CHAINS
-}
-
-export function getSupportedChainIds(): number[] {
-  return Object.keys(SUPPORTED_CHAINS).map(Number)
-}
-
-export function getChainById(chainId: SupportedChainId) {
-  return SUPPORTED_CHAINS[chainId]
 }

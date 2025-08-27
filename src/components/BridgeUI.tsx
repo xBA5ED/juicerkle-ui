@@ -50,43 +50,6 @@ export function BridgeUI() {
         console.log('Debug functions available: window.debugBridge.forceBackendCheck(), window.debugBridge.getAllTransactions(), window.debugBridge.createTestTransaction()')
     }, [])
 
-    // Test sucker discovery on component mount
-    // useEffect(() => {
-    //   const testSuckerDiscovery = async () => {
-    //     try {
-    //       console.log('🔍 Testing sucker discovery...')
-    //       
-    //       // Test with a sample project ID on Ethereum mainnet
-    //       // You can change these values to test with real project IDs
-    //       const testChainId = 1 // Ethereum mainnet
-    //       const testProjectId = '1' // Sample project ID
-    //       
-    //       console.log(`Discovering suckers for project ${testProjectId} on chain ${testChainId}`)
-    //       
-    //       const result = await suckerDiscoveryService.discoverAllSuckers(testChainId, testProjectId)
-    //       
-    //       console.log('🎉 Sucker discovery result:', {
-    //         projectMappings: Array.from(result.projectMappings.entries()),
-    //         suckerPairs: Array.from(result.suckerPairs.entries()),
-    //         totalProjects: result.projectMappings.size,
-    //         totalSuckerPairs: result.suckerPairs.size
-    //       })
-    //       
-    //       // Log each sucker pair in a readable format
-    //       result.suckerPairs.forEach((pair, pairId) => {
-    //         console.log(`🔗 Sucker Pair ${pairId}:`, {
-    //           chainA: `${pair.chainA.chainId} (Project ${pair.chainA.projectId}) → ${pair.chainA.address}`,
-    //           chainB: `${pair.chainB.chainId} (Project ${pair.chainB.projectId}) → ${pair.chainB.address}`
-    //         })
-    //       })
-    //     } catch (error) {
-    //       console.error('❌ Sucker discovery failed:', error)
-    //     }
-    //   }
-    //   
-    //   testSuckerDiscovery()
-    // }, [])
-
     const handleNewBridgeSuccess = () => {
         setShowNewBridgeForm(false)
         // In a real app, you would refresh the transaction list here
@@ -99,7 +62,7 @@ export function BridgeUI() {
                 <div>
                     <h1 className="text-2xl font-bold mb-2">Token Bridge</h1>
                     <p className="text-gray-600 dark:text-gray-400">
-                        Bridge your tokens across different chains
+                        Bridge your Juicebox tokens across chains
                     </p>
                 </div>
 
